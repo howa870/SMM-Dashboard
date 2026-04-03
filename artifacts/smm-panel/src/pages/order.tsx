@@ -1,82 +1,114 @@
 import { Layout } from "@/components/layout";
-import { useGetPlatforms, useGetServices, useCreateOrder, getGetServicesQueryKey } from "@workspace/api-client-react";
-import { useLocation, useSearch } from "wouter";
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useSearch, useLocation } from "wouter";
+import { useState, useMemo } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Link as LinkIcon, Calculator } from "lucide-react";
+import { Loader2, Link as LinkIcon, Calculator, AlertTriangle, Wallet } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePlatforms, useServices } from "@/hooks/useServicesData";
+import { useProfile } from "@/hooks/useProfile";
+import { useSupabaseAuth } from "@/context/AuthContext";
+import { submitOrder, deductBalance } from "@/lib/supabase-db";
 
 export function NewOrder() {
-  const [location, setLocation] = useLocation();
   const searchParams = new URLSearchParams(useSearch());
-  const defaultPlatformId = searchParams.get("platformId");
-  const defaultServiceId = searchParams.get("serviceId");
+  const defaultPlatformId = searchParams.get("platformId") || "";
+  const defaultServiceId = searchParams.get("serviceId") || "";
 
-  const [platformId, setPlatformId] = useState<string>(defaultPlatformId || "");
-  const [serviceId, setServiceId] = useState<string>(defaultServiceId || "");
+  const [platformId, setPlatformId] = useState<string>(defaultPlatformId);
+  const [serviceId, setServiceId] = useState<string>(defaultServiceId);
   const [link, setLink] = useState("");
   const [quantity, setQuantity] = useState<number | "">("");
+  const [submitting, setSubmitting] = useState(false);
+  const [quantityError, setQuantityError] = useState<string | null>(null);
 
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { supabaseUser } = useSupabaseAuth();
 
-  const { data: platforms, isLoading: platformsLoading } = useGetPlatforms();
-  
-  const { data: services, isLoading: servicesLoading } = useGetServices({
-    query: {
-      queryKey: getGetServicesQueryKey({ platformId: Number(platformId) }),
-      enabled: !!platformId,
-    },
-    request: {
-      query: { platformId: Number(platformId) }
-    }
-  } as any);
+  const { data: platforms } = usePlatforms();
+  const { data: services } = useServices(platformId ? Number(platformId) : undefined);
+  const { data: profile } = useProfile();
 
-  const selectedService = services?.find(s => s.id.toString() === serviceId);
+  const selectedService = useMemo(
+    () => services?.find(s => s.id.toString() === serviceId),
+    [services, serviceId]
+  );
 
-  const { mutate: createOrder, isPending } = useCreateOrder();
-
-  const totalPrice = selectedService && quantity 
-    ? (Number(quantity) * (selectedService.price / 1000))
+  const totalPrice = selectedService && quantity
+    ? Number(quantity) * (Number(selectedService.price) / 1000)
     : 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!serviceId || !link || !quantity) return;
+  const balance = Number(profile?.balance || 0);
+  const hasEnoughBalance = balance >= totalPrice;
 
-    if (selectedService) {
-      if (Number(quantity) < selectedService.minOrder) {
-        toast({ variant: "destructive", title: "خطأ", description: `أقل كمية هي ${selectedService.minOrder}` });
-        return;
-      }
-      if (Number(quantity) > selectedService.maxOrder) {
-        toast({ variant: "destructive", title: "خطأ", description: `أقصى كمية هي ${selectedService.maxOrder}` });
-        return;
-      }
+  const validateQuantity = (val: number) => {
+    if (!selectedService) return true;
+    if (val < selectedService.min_order) {
+      setQuantityError(`أقل كمية هي ${selectedService.min_order.toLocaleString()}`);
+      return false;
+    }
+    if (val > selectedService.max_order) {
+      setQuantityError(`أقصى كمية هي ${selectedService.max_order.toLocaleString()}`);
+      return false;
+    }
+    setQuantityError(null);
+    return true;
+  };
+
+  const handleQuantityChange = (val: string) => {
+    const num = val === "" ? "" : Number(val);
+    setQuantity(num);
+    if (num !== "") validateQuantity(Number(num));
+    else setQuantityError(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supabaseUser || !selectedService || !link || !quantity) return;
+
+    if (!validateQuantity(Number(quantity))) return;
+
+    if (!hasEnoughBalance) {
+      toast({ variant: "destructive", title: "رصيد غير كافٍ", description: `رصيدك IQD ${balance.toLocaleString()} وتحتاج IQD ${totalPrice.toLocaleString()}` });
+      return;
     }
 
-    createOrder({
-      data: {
-        serviceId: Number(serviceId),
+    setSubmitting(true);
+    try {
+      await submitOrder({
+        user_id: supabaseUser.id,
+        service_id: selectedService.id,
         link,
-        quantity: Number(quantity)
-      }
-    }, {
-      onSuccess: () => {
-        toast({ title: "تم إنشاء الطلب بنجاح" });
-        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-        setLocation("/orders");
-      },
-      onError: (error) => {
-        toast({ variant: "destructive", title: "خطأ في إنشاء الطلب", description: error.error || "تأكد من رصيدك" });
-      }
-    });
+        quantity: Number(quantity),
+        total_price: totalPrice,
+      });
+
+      const newBalance = balance - totalPrice;
+      await deductBalance(supabaseUser.id, newBalance);
+
+      queryClient.invalidateQueries({ queryKey: ["supabase", "profile", supabaseUser.id] });
+      queryClient.invalidateQueries({ queryKey: ["supabase", "orders"] });
+
+      toast({ title: "تم إرسال الطلب بنجاح" });
+
+      setServiceId("");
+      setPlatformId("");
+      setLink("");
+      setQuantity("");
+      setQuantityError(null);
+      setLocation("/orders");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "حدث خطأ، حاول مرة أخرى";
+      toast({ variant: "destructive", title: "خطأ في إنشاء الطلب", description: msg });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -84,13 +116,19 @@ export function NewOrder() {
       <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-500">
         <header>
           <h1 className="text-3xl font-bold text-white mb-2">طلب جديد</h1>
-          <p className="text-gray-400">قم بإنشاء طلب جديد لاي منصة ترغب بها</p>
+          <p className="text-gray-400">قم بإنشاء طلب جديد لأي منصة ترغب بها</p>
         </header>
+
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
+          <Wallet className="w-5 h-5 text-purple-400" />
+          <span className="text-gray-400 text-sm">رصيدك الحالي:</span>
+          <span className="font-bold text-white font-mono">IQD {balance.toLocaleString()}</span>
+        </div>
 
         <Card className="backdrop-blur-xl bg-white/5 border-white/10">
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-6">
-              
+
               <div className="space-y-2">
                 <Label className="text-gray-300">المنصة</Label>
                 <Select value={platformId} onValueChange={(val) => { setPlatformId(val); setServiceId(""); }}>
@@ -107,9 +145,9 @@ export function NewOrder() {
 
               <div className="space-y-2">
                 <Label className="text-gray-300">الخدمة</Label>
-                <Select value={serviceId} onValueChange={setServiceId} disabled={!platformId || servicesLoading}>
+                <Select value={serviceId} onValueChange={setServiceId} disabled={!platformId || !services?.length}>
                   <SelectTrigger className="bg-white/5 border-white/10 text-white rounded-xl h-12" dir="rtl">
-                    <SelectValue placeholder="اختر الخدمة" />
+                    <SelectValue placeholder={!platformId ? "اختر المنصة أولاً" : "اختر الخدمة"} />
                   </SelectTrigger>
                   <SelectContent className="bg-[#111122] border-white/10 text-white" dir="rtl">
                     {services?.map(s => (
@@ -122,9 +160,12 @@ export function NewOrder() {
               </div>
 
               {selectedService && (
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-sm text-blue-200">
-                  <p className="mb-1"><span className="font-semibold text-blue-400">الوصف:</span> {selectedService.description}</p>
-                  <p><span className="font-semibold text-blue-400">أقل/أقصى طلب:</span> {selectedService.minOrder} - {selectedService.maxOrder}</p>
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-sm text-blue-200 space-y-1">
+                  {selectedService.description && (
+                    <p><span className="font-semibold text-blue-400">الوصف:</span> {selectedService.description}</p>
+                  )}
+                  <p><span className="font-semibold text-blue-400">أقل طلب:</span> {selectedService.min_order.toLocaleString()}</p>
+                  <p><span className="font-semibold text-blue-400">أقصى طلب:</span> {selectedService.max_order.toLocaleString()}</p>
                 </div>
               )}
 
@@ -144,18 +185,31 @@ export function NewOrder() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-gray-300">الكمية</Label>
+                <Label className="text-gray-300">
+                  الكمية
+                  {selectedService && (
+                    <span className="text-gray-500 text-xs mr-2">
+                      ({selectedService.min_order.toLocaleString()} - {selectedService.max_order.toLocaleString()})
+                    </span>
+                  )}
+                </Label>
                 <Input
                   type="number"
                   value={quantity}
-                  onChange={(e) => setQuantity(e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) => handleQuantityChange(e.target.value)}
                   required
-                  min={selectedService?.minOrder || 1}
-                  max={selectedService?.maxOrder}
+                  min={selectedService?.min_order || 1}
+                  max={selectedService?.max_order}
                   placeholder="1000"
-                  className="h-12 bg-white/5 border-white/10 text-white focus-visible:ring-purple-500 rounded-xl"
+                  className={`h-12 bg-white/5 border-white/10 text-white focus-visible:ring-purple-500 rounded-xl ${quantityError ? "border-red-500/50" : ""}`}
                   dir="ltr"
                 />
+                {quantityError && (
+                  <div className="flex items-center gap-2 text-red-400 text-sm">
+                    <AlertTriangle className="w-4 h-4" />
+                    {quantityError}
+                  </div>
+                )}
               </div>
 
               <Card className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 border-purple-500/30">
@@ -171,15 +225,21 @@ export function NewOrder() {
                       </p>
                     </div>
                   </div>
+                  {totalPrice > 0 && !hasEnoughBalance && (
+                    <div className="flex items-center gap-2 text-red-400 text-sm">
+                      <AlertTriangle className="w-4 h-4" />
+                      رصيد غير كافٍ
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
               <Button
                 type="submit"
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg shadow-purple-500/20 font-bold text-lg"
-                disabled={isPending || !serviceId || !link || !quantity}
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg shadow-purple-500/20 font-bold text-lg disabled:opacity-50"
+                disabled={submitting || !serviceId || !link || !quantity || !!quantityError || !hasEnoughBalance}
               >
-                {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "تأكيد الطلب"}
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "تأكيد الطلب"}
               </Button>
             </form>
           </CardContent>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +17,11 @@ export function Register() {
   const { toast } = useToast();
   const { supabaseUser, register } = useSupabaseAuth();
 
-  if (supabaseUser) {
-    setLocation("/");
-    return null;
-  }
+  useEffect(() => {
+    if (supabaseUser) setLocation("/");
+  }, [supabaseUser, setLocation]);
+
+  if (supabaseUser) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
