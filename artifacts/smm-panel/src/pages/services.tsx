@@ -72,38 +72,40 @@ async function fetchServices(): Promise<Service[]> {
 // ─── Single service row ─────────────────────────────────────────────────────────
 function ServiceRow({ svc, platformMeta }: { svc: Service; platformMeta: ReturnType<typeof getMeta> }) {
   const badge = qualityBadge(svc.name);
-  const orderUrl = `/order?sid=${svc.id}&sname=${encodeURIComponent(svc.name)}&sprice=${svc.price}&smin=${svc.min_order}&smax=${svc.max_order}&sprovider=${svc.provider || "local"}`;
+  const orderUrl = `/order?sid=${svc.id}&sname=${encodeURIComponent(svc.name)}&sprice=${svc.price}&smin=${svc.min_order}&smax=${svc.max_order}&sprovider=${encodeURIComponent(svc.provider || "local")}`;
 
   return (
-    <div className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/10 transition-all">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-white text-sm font-medium leading-snug line-clamp-2">{svc.name}</span>
-          {badge && (
-            <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-              {badge}
-            </span>
-          )}
+    <Link href={orderUrl} className="block">
+      <div className="group flex items-center gap-3 px-4 py-3 rounded-xl border border-white/5 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/10 transition-all cursor-pointer">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-white text-sm font-medium leading-snug">{svc.name}</span>
+            {badge && (
+              <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                {badge}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+            <span>الحد الأدنى: <span className="text-gray-400">{svc.min_order.toLocaleString()}</span></span>
+            <span>•</span>
+            <span>الأقصى: <span className="text-gray-400">{svc.max_order.toLocaleString()}</span></span>
+          </div>
         </div>
-        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-          <span>الحد الأدنى: <span className="text-gray-400">{svc.min_order.toLocaleString()}</span></span>
-          <span>•</span>
-          <span>الأقصى: <span className="text-gray-400">{svc.max_order.toLocaleString()}</span></span>
+        <div className="shrink-0 text-left">
+          <div className="text-xs text-gray-500 mb-0.5">لكل 1000</div>
+          <div className={`font-bold font-mono text-sm ${platformMeta.color}`}>
+            IQD {Number(svc.price).toLocaleString()}
+          </div>
+        </div>
+        <div className="shrink-0">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-all shadow-sm shadow-purple-900/40">
+            <ShoppingCart className="w-3.5 h-3.5" />
+            <span>اطلب الآن</span>
+          </div>
         </div>
       </div>
-      <div className="shrink-0 text-left">
-        <div className="text-xs text-gray-500 mb-0.5">لكل 1000</div>
-        <div className={`font-bold font-mono text-sm ${platformMeta.color}`}>
-          IQD {Number(svc.price).toLocaleString()}
-        </div>
-      </div>
-      <Link href={orderUrl}>
-        <Button size="sm"
-          className="shrink-0 h-8 px-3 bg-white/8 hover:bg-purple-600 text-white rounded-lg text-xs font-medium transition-all opacity-0 group-hover:opacity-100">
-          <ShoppingCart className="w-3 h-3 ml-1" />طلب
-        </Button>
-      </Link>
-    </div>
+    </Link>
   );
 }
 
