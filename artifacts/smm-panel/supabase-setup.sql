@@ -48,6 +48,18 @@ create table if not exists public.orders (
   created_at timestamptz default now()
 );
 
+-- 5. PAYMENTS TABLE
+create table if not exists public.payments (
+  id serial primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount numeric(10,2) not null check (amount > 0),
+  method text not null check (method in ('zaincash', 'qicard', 'manual')),
+  transaction_id text,
+  notes text,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamptz default now()
+);
+
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================
@@ -56,6 +68,7 @@ alter table public.platforms enable row level security;
 alter table public.services enable row level security;
 alter table public.profiles enable row level security;
 alter table public.orders enable row level security;
+alter table public.payments enable row level security;
 
 -- Platforms: anyone can read
 drop policy if exists "platforms_select" on public.platforms;
@@ -65,22 +78,46 @@ create policy "platforms_select" on public.platforms for select using (true);
 drop policy if exists "services_select" on public.services;
 create policy "services_select" on public.services for select using (true);
 
--- Profiles: users can read/update their own profile
+-- Profiles: users can read/update their own; admins can read/update all
 drop policy if exists "profiles_select_own" on public.profiles;
-create policy "profiles_select_own" on public.profiles for select using (auth.uid() = id);
+create policy "profiles_select_own" on public.profiles for select using (
+  auth.uid() = id
+  or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
 
 drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_insert_own" on public.profiles for insert with check (auth.uid() = id);
 
 drop policy if exists "profiles_update_own" on public.profiles;
-create policy "profiles_update_own" on public.profiles for update using (auth.uid() = id);
+create policy "profiles_update_own" on public.profiles for update using (
+  auth.uid() = id
+  or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
 
--- Orders: users can read/insert their own orders
+-- Orders: users can read/insert their own; admins can read all
 drop policy if exists "orders_select_own" on public.orders;
-create policy "orders_select_own" on public.orders for select using (auth.uid() = user_id);
+create policy "orders_select_own" on public.orders for select using (
+  auth.uid() = user_id
+  or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
 
 drop policy if exists "orders_insert_own" on public.orders;
 create policy "orders_insert_own" on public.orders for insert with check (auth.uid() = user_id);
+
+-- Payments: users can see/insert their own; admins can see/update all
+drop policy if exists "payments_select" on public.payments;
+create policy "payments_select" on public.payments for select using (
+  auth.uid() = user_id
+  or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
+
+drop policy if exists "payments_insert_own" on public.payments;
+create policy "payments_insert_own" on public.payments for insert with check (auth.uid() = user_id);
+
+drop policy if exists "payments_update_admin" on public.payments;
+create policy "payments_update_admin" on public.payments for update using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
 
 -- ============================================================
 -- SEED: PLATFORMS
@@ -152,6 +189,24 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ============================================================
+-- HOW TO CREATE AN ADMIN USER
+-- After running this script:
+-- 1. Register a new user via the app (or Supabase Dashboard → Authentication → Users → Invite user)
+-- 2. Copy the user's UUID from the auth.users table
+-- 3. Run this query (replace the UUID):
+--
+--    update public.profiles
+--    set role = 'admin'
+--    where id = 'PASTE-USER-UUID-HERE';
+--
+-- That user will now have admin access to /admin, /admin/payments, etc.
+-- ============================================================
+
+-- HOW TO ADD A PAYMENT (for testing):
+-- insert into public.payments (user_id, amount, method, transaction_id, notes)
+-- values ('USER-UUID-HERE', 5000, 'zaincash', 'TX123456', 'test payment');
 
 -- Done!
 select 'Setup complete! Tables created, RLS configured, data seeded.' as result;

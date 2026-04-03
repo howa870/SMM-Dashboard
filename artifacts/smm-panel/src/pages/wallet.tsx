@@ -1,277 +1,270 @@
 import { Layout } from "@/components/layout";
-import { useGetBalance, useGetPayments, useCreatePayment, useUploadReceipt, getGetBalanceQueryKey, getGetPaymentsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { useState, useRef } from "react";
-import { Loader2, Upload, Wallet as WalletIcon, CreditCard, Receipt } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { Loader2, Wallet as WalletIcon, Receipt, Clock, CheckCircle2, XCircle, Info } from "lucide-react";
 import { format } from "date-fns";
-import { useQueryClient } from "@tanstack/react-query";
+import { useProfile } from "@/hooks/useProfile";
+import { useUserPayments, useCreatePayment } from "@/hooks/usePaymentsData";
+import type { Payment } from "@/lib/supabase-db";
 
-const statusColors = {
-  pending: "bg-yellow-500/20 text-yellow-500 border-yellow-500/50",
-  approved: "bg-green-500/20 text-green-400 border-green-500/50",
-  rejected: "bg-red-500/20 text-red-400 border-red-500/50",
+const METHOD_INFO: Record<Payment["method"], { label: string; icon: string; number: string; description: string }> = {
+  zaincash: {
+    label: "زين كاش",
+    icon: "💳",
+    number: "07801234567",
+    description: "حوّل المبلغ إلى رقم زين كاش أدناه، ثم أدخل رقم العملية.",
+  },
+  qicard: {
+    label: "QiCard",
+    icon: "💰",
+    number: "1234 5678 9012 3456",
+    description: "حوّل المبلغ إلى رقم QiCard أدناه، ثم أدخل رقم العملية.",
+  },
+  manual: {
+    label: "حوالة يدوية",
+    icon: "🏦",
+    number: "تواصل مع الدعم",
+    description: "تواصل مع فريق الدعم لإتمام عملية التحويل اليدوي.",
+  },
 };
 
-const statusLabels = {
-  pending: "قيد الانتظار",
-  approved: "مقبول",
-  rejected: "مرفوض",
-};
-
-const methodLabels = {
-  zaincash: "زين كاش",
-  asiahawala: "آسيا حوالة",
-  stripe: "بطاقة ائتمان",
+const STATUS_CONFIG: Record<Payment["status"], { label: string; color: string; icon: React.ReactNode }> = {
+  pending: { label: "قيد المراجعة", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/50", icon: <Clock className="w-4 h-4" /> },
+  approved: { label: "مقبول", color: "bg-green-500/20 text-green-400 border-green-500/50", icon: <CheckCircle2 className="w-4 h-4" /> },
+  rejected: { label: "مرفوض", color: "bg-red-500/20 text-red-400 border-red-500/50", icon: <XCircle className="w-4 h-4" /> },
 };
 
 export function Wallet() {
-  const { data: balanceData, isLoading: balanceLoading } = useGetBalance();
-  const { data: payments, isLoading: paymentsLoading } = useGetPayments();
-  
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { data: payments, isLoading: paymentsLoading } = useUserPayments();
+
   const [amount, setAmount] = useState<number | "">("");
-  const [method, setMethod] = useState<"zaincash" | "asiahawala" | "stripe">("zaincash");
+  const [method, setMethod] = useState<Payment["method"]>("zaincash");
   const [transactionId, setTransactionId] = useState("");
-  const [receiptUrl, setReceiptUrl] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [notes, setNotes] = useState("");
 
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  const { mutate: uploadReceipt, isPending: isUploading } = useUploadReceipt();
-  const { mutate: createPayment, isPending: isSubmitting } = useCreatePayment();
+  const { mutateAsync: createPayment, isPending: isSubmitting } = useCreatePayment();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      
-      uploadReceipt({
-        data: {
-          imageData: base64,
-          fileName: file.name
-        }
-      }, {
-        onSuccess: (res) => {
-          setReceiptUrl(res.url);
-          toast({ title: "تم رفع الإيصال بنجاح" });
-        },
-        onError: () => {
-          toast({ variant: "destructive", title: "خطأ في رفع الإيصال" });
-        }
-      });
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || amount <= 0) return;
+    if (!amount || Number(amount) < 1000) {
+      toast({ variant: "destructive", title: "المبلغ يجب أن يكون 1000 IQD على الأقل" });
+      return;
+    }
 
-    createPayment({
-      data: {
+    try {
+      await createPayment({
         amount: Number(amount),
         method,
-        transactionId: transactionId || undefined,
-        receiptUrl: receiptUrl || undefined,
-      }
-    }, {
-      onSuccess: () => {
-        toast({ title: "تم إرسال طلب الشحن بنجاح" });
-        setAmount("");
-        setTransactionId("");
-        setReceiptUrl("");
-        queryClient.invalidateQueries({ queryKey: getGetPaymentsQueryKey() });
-      },
-      onError: (error) => {
-        toast({ variant: "destructive", title: "خطأ", description: error.error });
-      }
-    });
+        transaction_id: transactionId || undefined,
+        notes: notes || undefined,
+      });
+      toast({ title: "✅ تم إرسال طلب الشحن بنجاح", description: "سيتم مراجعته من قِبل الإدارة قريباً." });
+      setAmount("");
+      setTransactionId("");
+      setNotes("");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "حدث خطأ في إرسال الطلب";
+      toast({ variant: "destructive", title: "خطأ", description: msg });
+    }
   };
+
+  const selectedMethodInfo = METHOD_INFO[method];
 
   return (
     <Layout>
       <div className="space-y-6 animate-in fade-in duration-500">
         <header>
           <h1 className="text-3xl font-bold text-white mb-2">المحفظة</h1>
-          <p className="text-gray-400">إدارة رصيدك وعمليات الشحن</p>
+          <p className="text-gray-400">إدارة رصيدك وطلبات الشحن</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* ─── LEFT COLUMN: Balance + Form ─── */}
           <div className="lg:col-span-1 space-y-6">
-            <Card className="backdrop-blur-xl bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-white/10">
+
+            {/* Balance Card */}
+            <Card className="backdrop-blur-xl bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30">
               <CardContent className="p-6 text-center">
                 <div className="w-16 h-16 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center mb-4">
                   <WalletIcon className="w-8 h-8 text-purple-400" />
                 </div>
                 <p className="text-gray-400 mb-2">الرصيد الحالي</p>
-                {balanceLoading ? (
-                  <div className="h-10 w-32 bg-white/10 animate-pulse rounded-lg mx-auto" />
+                {profileLoading ? (
+                  <div className="h-10 w-40 bg-white/10 animate-pulse rounded-lg mx-auto" />
                 ) : (
-                  <h2 className="text-4xl font-bold text-white">IQD {balanceData?.balance?.toLocaleString() || 0}</h2>
+                  <h2 className="text-4xl font-bold text-white font-mono">
+                    IQD {Number(profile?.balance || 0).toLocaleString()}
+                  </h2>
                 )}
               </CardContent>
             </Card>
 
+            {/* Recharge Form */}
             <Card className="backdrop-blur-xl bg-white/5 border-white/10">
               <CardHeader>
                 <CardTitle className="text-white">شحن الرصيد</CardTitle>
-                <CardDescription className="text-gray-400">اختر طريقة الدفع المناسبة لك</CardDescription>
+                <CardDescription className="text-gray-400">اختر طريقة الدفع وأرسل طلب الشحن</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-5">
+
+                  {/* Amount */}
                   <div className="space-y-2">
                     <Label className="text-gray-300">المبلغ (IQD)</Label>
                     <div className="grid grid-cols-2 gap-2 mb-2">
-                      {[5000, 10000, 25000, 50000].map(preset => (
+                      {[5000, 10000, 25000, 50000].map(p => (
                         <Button
-                          key={preset}
+                          key={p}
                           type="button"
                           variant="outline"
-                          className="bg-white/5 border-white/10 text-white hover:bg-white/10"
-                          onClick={() => setAmount(preset)}
+                          className={`rounded-lg font-mono text-sm transition-all ${amount === p ? "bg-purple-600/30 border-purple-500/50 text-white" : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"}`}
+                          onClick={() => setAmount(p)}
                         >
-                          {preset.toLocaleString()}
+                          {p.toLocaleString()}
                         </Button>
                       ))}
                     </div>
                     <Input
                       type="number"
                       value={amount}
-                      onChange={(e) => setAmount(e.target.value ? Number(e.target.value) : "")}
-                      className="bg-white/5 border-white/10 text-white text-left"
+                      onChange={e => setAmount(e.target.value ? Number(e.target.value) : "")}
+                      className="bg-white/5 border-white/10 text-white focus-visible:ring-purple-500 rounded-xl h-12 text-left font-mono"
                       dir="ltr"
-                      placeholder="مبلغ مخصص"
+                      placeholder="أو أدخل مبلغاً مخصصاً..."
                       required
                       min={1000}
                     />
                   </div>
 
+                  {/* Payment Method */}
                   <div className="space-y-2">
                     <Label className="text-gray-300">طريقة الدفع</Label>
                     <div className="grid grid-cols-3 gap-2">
-                      {(["zaincash", "asiahawala", "stripe"] as const).map(m => (
-                        <Button
-                          key={m}
+                      {(Object.entries(METHOD_INFO) as [Payment["method"], typeof METHOD_INFO[Payment["method"]]][]).map(([key, info]) => (
+                        <button
+                          key={key}
                           type="button"
-                          variant={method === m ? "default" : "outline"}
-                          className={method === m ? "bg-gradient-to-r from-purple-600 to-blue-600 border-none" : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"}
-                          onClick={() => setMethod(m)}
+                          onClick={() => setMethod(key)}
+                          className={`rounded-xl p-3 text-center border transition-all ${method === key ? "bg-purple-600/30 border-purple-500/50 text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"}`}
                         >
-                          {methodLabels[m]}
-                        </Button>
+                          <div className="text-2xl mb-1">{info.icon}</div>
+                          <div className="text-xs font-medium">{info.label}</div>
+                        </button>
                       ))}
                     </div>
                   </div>
 
-                  {(method === "zaincash" || method === "asiahawala") && (
-                    <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl space-y-4">
-                      <p className="text-sm text-blue-200">
-                        الرجاء تحويل المبلغ إلى الرقم: <span className="font-mono font-bold" dir="ltr">078X XXX XXXX</span>
-                      </p>
-                      
-                      <div className="space-y-2">
-                        <Label className="text-gray-300">رقم العملية (Transaction ID)</Label>
-                        <Input
-                          value={transactionId}
-                          onChange={(e) => setTransactionId(e.target.value)}
-                          className="bg-white/5 border-white/10 text-white font-mono"
-                          dir="ltr"
-                        />
-                      </div>
+                  {/* Method Info Box */}
+                  <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-4 space-y-3">
+                    <div className="flex items-start gap-2 text-blue-300 text-sm">
+                      <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                      <p>{selectedMethodInfo.description}</p>
+                    </div>
+                    <div className="font-mono text-white text-sm bg-white/10 rounded-lg px-3 py-2 text-center" dir="ltr">
+                      {selectedMethodInfo.number}
+                    </div>
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label className="text-gray-300">إيصال التحويل</Label>
-                        <div className="flex gap-2 items-center">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="bg-white/5 border-white/10 text-white flex-1"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploading}
-                          >
-                            {isUploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 ml-2" />}
-                            {receiptUrl ? "تم رفع الإيصال" : "اختر صورة"}
-                          </Button>
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                          />
-                        </div>
-                      </div>
+                  {/* Transaction ID */}
+                  {method !== "manual" && (
+                    <div className="space-y-2">
+                      <Label className="text-gray-300">رقم العملية (Transaction ID)</Label>
+                      <Input
+                        value={transactionId}
+                        onChange={e => setTransactionId(e.target.value)}
+                        className="bg-white/5 border-white/10 text-white focus-visible:ring-purple-500 rounded-xl h-12 font-mono"
+                        dir="ltr"
+                        placeholder="TXID..."
+                      />
                     </div>
                   )}
 
-                  {method === "stripe" && (
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10 flex items-center gap-3 text-gray-400">
-                      <CreditCard className="w-5 h-5" />
-                      <span className="text-sm">سيتم توجيهك إلى بوابة الدفع</span>
-                    </div>
-                  )}
+                  {/* Notes */}
+                  <div className="space-y-2">
+                    <Label className="text-gray-300">ملاحظات (اختياري)</Label>
+                    <Textarea
+                      value={notes}
+                      onChange={e => setNotes(e.target.value)}
+                      className="bg-white/5 border-white/10 text-white focus-visible:ring-purple-500 rounded-xl resize-none"
+                      rows={2}
+                      placeholder="أي معلومات إضافية..."
+                    />
+                  </div>
 
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white"
-                    disabled={isSubmitting || !amount || ((method === "zaincash" || method === "asiahawala") && !transactionId && !receiptUrl)}
+                    disabled={isSubmitting || !amount || Number(amount) < 1000}
+                    className="w-full h-12 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold text-base shadow-lg shadow-purple-500/20 disabled:opacity-50"
                   >
-                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "تأكيد عملية الشحن"}
+                    {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "إرسال طلب الشحن"}
                   </Button>
                 </form>
               </CardContent>
             </Card>
           </div>
 
+          {/* ─── RIGHT COLUMN: Payment History ─── */}
           <div className="lg:col-span-2">
-            <Card className="backdrop-blur-xl bg-white/5 border-white/10 h-full">
+            <Card className="backdrop-blur-xl bg-white/5 border-white/10">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <Receipt className="w-5 h-5 text-purple-400" />
-                  سجل المدفوعات
+                  سجل طلبات الشحن
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {paymentsLoading ? (
                   <div className="space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-16 bg-white/5 animate-pulse rounded-xl" />
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="h-20 bg-white/5 animate-pulse rounded-xl" />
                     ))}
                   </div>
-                ) : payments?.length === 0 ? (
-                  <div className="text-center py-12 text-gray-400">
-                    لا توجد عمليات شحن سابقة
+                ) : !payments?.length ? (
+                  <div className="text-center py-16 text-gray-500">
+                    <Receipt className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>لا توجد طلبات شحن سابقة</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {payments?.map(payment => (
-                      <div key={payment.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            payment.status === 'approved' ? 'bg-green-500/20 text-green-400' :
-                            payment.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
-                            'bg-yellow-500/20 text-yellow-400'
-                          }`}>
-                            {payment.method === 'stripe' ? <CreditCard className="w-5 h-5" /> : <WalletIcon className="w-5 h-5" />}
+                    {payments.map(pay => {
+                      const cfg = STATUS_CONFIG[pay.status];
+                      const mInfo = METHOD_INFO[pay.method];
+                      return (
+                        <div key={pay.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors gap-4">
+                          <div className="flex items-center gap-4 flex-1 min-w-0">
+                            <div className={`w-11 h-11 rounded-full shrink-0 flex items-center justify-center text-xl ${
+                              pay.status === "approved" ? "bg-green-500/20" :
+                              pay.status === "rejected" ? "bg-red-500/20" : "bg-yellow-500/20"
+                            }`}>
+                              {mInfo.icon}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-white font-mono">IQD {Number(pay.amount).toLocaleString()}</p>
+                              <p className="text-xs text-gray-400 truncate">
+                                {mInfo.label}
+                                {pay.transaction_id && <span className="font-mono mr-2 text-gray-500">• {pay.transaction_id}</span>}
+                              </p>
+                              <p className="text-xs text-gray-600 font-mono" dir="ltr">
+                                {format(new Date(pay.created_at), "yyyy/MM/dd HH:mm")}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold text-white">IQD {payment.amount.toLocaleString()}</p>
-                            <p className="text-xs text-gray-400">{format(new Date(payment.createdAt), "yyyy/MM/dd HH:mm")} • {methodLabels[payment.method]}</p>
-                          </div>
+                          <Badge variant="outline" className={`flex items-center gap-1.5 shrink-0 ${cfg.color}`}>
+                            {cfg.icon}
+                            {cfg.label}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className={statusColors[payment.status]}>
-                          {statusLabels[payment.status]}
-                        </Badge>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
