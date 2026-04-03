@@ -209,7 +209,22 @@ function filterAndRankServices(raw: FollowizService[]): FollowizService[] {
 // ══════════════════════════════════════════════════════════════════════════════
 // AUTO-SYNC ENGINE
 // Fetches from Followiz → filters → upserts to Supabase
-// Price = rate * 1.3 * 1300  (USD × 30% profit × 1300 IQD/USD)
+// ─── SMART PRICING ────────────────────────────────────────────────────────────
+// Type-based profit multiplier × 1300 IQD per USD
+const PROFIT_MULTIPLIERS: Record<string, number> = {
+  Followers: 1.30,
+  Likes:     1.25,
+  Views:     1.20,
+  Comments:  1.40,
+  Other:     1.25,
+};
+
+function calcPriceIQD(rate: number | string, serviceType?: string): number {
+  const mult = PROFIT_MULTIPLIERS[serviceType || "Other"] ?? 1.25;
+  return Math.ceil(Number(rate) * mult * 1300);
+}
+
+// Price = rate * profit_multiplier * 1300 IQD/USD
 // ══════════════════════════════════════════════════════════════════════════════
 let lastDbSyncTime = 0;       // epoch ms of last successful DB sync
 let isDbSyncing    = false;   // guard against concurrent syncs
@@ -246,19 +261,22 @@ async function autoSyncServicesToDb(): Promise<number> {
     const filtered = filterAndRankServices(followizServices);
     console.log(`[SMM] Filtered: ${filtered.length}/${followizServices.length} services kept`);
 
-    // 3. Build upsert rows — price = rate * 1.3 * 1300 IQD
-    const rows = filtered.map(svc => ({
+    // 3. Build upsert rows — type-based smart pricing
+    const rows = filtered.map(svc => {
+      const svcType = detectServiceType(svc.name);
+      return {
       provider:            "followiz",
       provider_service_id: String(svc.service),
       name:                svc.name,
       category:            svc.category,
       platform:            detectPlatform(svc.name, svc.category),
-      service_type:        detectServiceType(svc.name),
-      price:               Math.ceil(Number(svc.rate) * 1.3 * 1300),
+      service_type:        svcType,
+      price:               calcPriceIQD(svc.rate, svcType),
       min_order:           Number(svc.min),
       max_order:           Number(svc.max),
       status:              "active",
-    }));
+      };
+    });
 
     // 4. Upsert in batches (onConflict = provider_service_id unique index)
     // Helper: upsert a batch, retry without service_type if column missing
@@ -372,13 +390,15 @@ async function verifyToken(authHeader?: string): Promise<string | null> {
 // Applies the same filtering + ranking as the DB sync engine
 function followizToServices(raw: FollowizService[]) {
   const filtered = filterAndRankServices(raw);
-  return filtered.map(svc => ({
+  return filtered.map(svc => {
+    const svcType = detectServiceType(svc.name);
+    return {
     id:                  svc.service,
     name:                svc.name,
     category:            svc.category,
     platform:            detectPlatform(svc.name, svc.category),
-    service_type:        detectServiceType(svc.name),
-    price:               Math.ceil(Number(svc.rate) * 1.3 * 1300),
+    service_type:        svcType,
+    price:               calcPriceIQD(svc.rate, svcType),
     min_order:           Number(svc.min),
     max_order:           Number(svc.max),
     status:              "active",
@@ -386,7 +406,8 @@ function followizToServices(raw: FollowizService[]) {
     provider_service_id: String(svc.service),
     platform_id:         null,
     description:         null,
-  }));
+    };
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -572,10 +593,11 @@ router.post("/order", async (req, res) => {
       const all = await followizRequest({ action: "services" }) as FollowizService[];
       const raw = all.find(s => String(s.service) === String(service_id));
       if (raw) {
+        const rawType = detectServiceType(raw.name);
         svc = {
           id:                  null,   // no DB row exists
           name:                raw.name,
-          price:               Math.ceil(Number(raw.rate) * 1.3 * 1300),
+          price:               calcPriceIQD(raw.rate, rawType),
           min_order:           Number(raw.min),
           max_order:           Number(raw.max),
           provider:            "followiz",

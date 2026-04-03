@@ -10,6 +10,7 @@ import dashboardRouter from "./dashboard";
 import adminRouter from "./admin";
 import telegramRouter from "./telegram";
 import smmRouter, { startSmmPoller } from "./smm";
+import referralsRouter from "./referrals";
 import path from "path";
 import express from "express";
 
@@ -26,6 +27,7 @@ router.use("/dashboard", dashboardRouter);
 router.use("/admin", adminRouter);
 router.use("/telegram", telegramRouter);
 router.use("/smm", smmRouter);
+router.use("/referrals", referralsRouter);
 
 // Start Followiz auto-status polling (every 30s)
 startSmmPoller();

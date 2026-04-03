@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Wallet as WalletIcon, Receipt, Clock, CheckCircle2, XCircle, Info, Upload, Copy, Check, Sparkles, ImageIcon } from "lucide-react";
+import { Loader2, Wallet as WalletIcon, Receipt, Clock, CheckCircle2, XCircle, Info, Upload, Copy, Check, Sparkles, ImageIcon, Gift } from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPayments, useCreatePayment } from "@/hooks/usePaymentsData";
@@ -222,6 +222,31 @@ export function Wallet() {
                   </h2>
                 )}
                 <p className="text-xs text-purple-400/60 mt-2">يتم التحديث تلقائياً</p>
+              </CardContent>
+            </Card>
+
+            {/* Bonus Tiers Info */}
+            <Card className="backdrop-blur-xl bg-gradient-to-br from-green-600/10 to-emerald-600/10 border-green-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Gift className="w-4 h-4 text-green-400" />
+                  <span className="text-green-300 text-sm font-semibold">مكافآت الشحن</span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { min: "10,000", max: "19,999", pct: "10%" },
+                    { min: "20,000", max: "49,999", pct: "15%" },
+                    { min: "50,000+", max: null,    pct: "20%" },
+                  ].map(t => (
+                    <div key={t.pct} className="flex items-center justify-between text-xs">
+                      <span className="text-gray-400 font-mono">
+                        {t.max ? `${t.min} – ${t.max} IQD` : `${t.min} IQD`}
+                      </span>
+                      <Badge variant="outline" className="bg-green-500/20 text-green-300 border-green-500/30 font-bold">+{t.pct}</Badge>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-gray-500 text-xs mt-3">يُضاف المكافأة تلقائياً عند الموافقة</p>
               </CardContent>
             </Card>
 

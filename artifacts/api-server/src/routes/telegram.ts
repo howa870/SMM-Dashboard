@@ -400,6 +400,14 @@ async function processAddBalance(chatId: number | string, fromId: number, text: 
   ].join("\n"), { reply_markup: MAIN_MENU });
 }
 
+// ─── BONUS CALCULATOR ────────────────────────────────────────────────────────
+function calcBonus(amount: number): number {
+  if (amount >= 50000) return Math.round(amount * 0.20);
+  if (amount >= 20000) return Math.round(amount * 0.15);
+  if (amount >= 10000) return Math.round(amount * 0.10);
+  return 0;
+}
+
 // ─── APPROVE / REJECT PAYMENT ────────────────────────────────────────────────
 async function approvePayment(paymentId: string, adminName: string): Promise<string> {
   if (!db) return "❌ قاعدة البيانات غير متاحة";
@@ -412,33 +420,72 @@ async function approvePayment(paymentId: string, adminName: string): Promise<str
   if (fetchErr || !payment) return `❌ الطلب غير موجود (${paymentId.slice(0, 8)}…)`;
   if (payment.status !== "pending") return `⚠️ الطلب معالَج مسبقاً: ${payment.status}`;
 
-  // Fetch profile for fallback balance
-  const { data: profile } = await db.from("profiles").select("balance").eq("id", payment.user_id).maybeSingle();
+  const baseAmount = Number(payment.amount);
+  const bonus = calcBonus(baseAmount);
+  const totalCredit = baseAmount + bonus;
 
-  // increment_balance RPC (atomic)
+  // Fetch profile (balance + referrer_id)
+  const { data: profile } = await db.from("profiles").select("balance, referrer_id").eq("id", payment.user_id).maybeSingle();
+
+  // Credit balance (base + bonus)
   const { error: rpcErr } = await db.rpc("increment_balance", {
     uid: payment.user_id,
-    amount: Number(payment.amount),
+    amount: totalCredit,
   });
   if (rpcErr) {
-    // Fallback
-    const newBal = Number(profile?.balance || 0) + Number(payment.amount);
+    const newBal = Number(profile?.balance || 0) + totalCredit;
     const { error: fallErr } = await db.from("profiles").update({ balance: newBal }).eq("id", payment.user_id);
     if (fallErr) return `❌ فشل تحديث الرصيد: ${fallErr.message}`;
+  }
+
+  // Record in transactions table (best effort)
+  await db.from("transactions").insert({
+    user_id: payment.user_id,
+    amount: baseAmount,
+    bonus,
+    method: "wallet_topup",
+    type: "deposit",
+  }).then(r => { if (r.error) console.warn("[TG] transactions insert:", r.error.message); });
+
+  // Referral commission: 5% of base amount to referrer
+  const referrerId = (profile as { referrer_id?: string } | null)?.referrer_id;
+  let commissionNote = "";
+  if (referrerId) {
+    const commission = Math.round(baseAmount * 0.05);
+    if (commission > 0) {
+      const { error: refRpcErr } = await db.rpc("increment_balance", { uid: referrerId, amount: commission });
+      if (refRpcErr) {
+        const { data: refProf } = await db.from("profiles").select("balance").eq("id", referrerId).maybeSingle();
+        const refNewBal = Number(refProf?.balance || 0) + commission;
+        await db.from("profiles").update({ balance: refNewBal }).eq("id", referrerId)
+          .then(r => { if (r.error) console.warn("[TG] ref commission fallback:", r.error.message); });
+      }
+      await db.from("referral_earnings").insert({
+        user_id: referrerId,
+        referred_user_id: payment.user_id,
+        amount: commission,
+      }).then(r => { if (r.error) console.warn("[TG] referral_earnings insert:", r.error.message); });
+      commissionNote = `\n🤝 عمولة إحالة: <b>${commission.toLocaleString()} IQD</b> → مُرسَلة للمُحيل`;
+    }
   }
 
   const { error: payErr } = await db.from("payments").update({ status: "approved" }).eq("id", paymentId);
   if (payErr) return `❌ فشل تحديث الطلب: ${payErr.message}`;
 
+  const notifMsg = bonus > 0
+    ? `تم إضافة ${baseAmount.toLocaleString()} IQD + مكافأة ${bonus.toLocaleString()} IQD (إجمالي ${totalCredit.toLocaleString()} IQD) إلى حسابك.`
+    : `تم إضافة ${baseAmount.toLocaleString()} IQD إلى حسابك بنجاح.`;
+
   await db.from("notifications").insert({
     user_id: payment.user_id,
-    title: "✅ تم شحن رصيدك",
-    message: `تم إضافة ${Number(payment.amount).toLocaleString()} IQD إلى حسابك بنجاح.`,
+    title: bonus > 0 ? `✅ تم شحن رصيدك + مكافأة ${bonus.toLocaleString()} IQD` : "✅ تم شحن رصيدك",
+    message: notifMsg,
     is_read: false,
   }).then(r => { if (r.error) console.warn("[TG] approve notif:", r.error.message); });
 
-  console.log(`[TG] ✅ Approved ${paymentId} — +${payment.amount} IQD → ${payment.user_id}`);
-  return `💰 المبلغ المُضاف: <b>${Number(payment.amount).toLocaleString()} IQD</b>\n🆔 رقم الطلب: <code>${String(paymentId).slice(0,8)}…</code>\n👤 بواسطة: ${adminName}`;
+  console.log(`[TG] ✅ Approved ${paymentId} — base=${baseAmount} bonus=${bonus} total=${totalCredit} → ${payment.user_id}`);
+  const bonusNote = bonus > 0 ? `\n🎁 مكافأة شحن: <b>+${bonus.toLocaleString()} IQD</b> (${Math.round(bonus/baseAmount*100)}%)` : "";
+  return `💰 المبلغ: <b>${baseAmount.toLocaleString()} IQD</b>${bonusNote}\n✅ الإجمالي المُضاف: <b>${totalCredit.toLocaleString()} IQD</b>${commissionNote}\n🆔 <code>${String(paymentId).slice(0,8)}…</code>\n👤 بواسطة: ${adminName}`;
 }
 
 async function rejectPayment(paymentId: string, adminName: string): Promise<string> {
