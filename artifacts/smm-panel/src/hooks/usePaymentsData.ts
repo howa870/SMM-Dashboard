@@ -92,7 +92,7 @@ export function useCreatePayment() {
 export function useApprovePayment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ paymentId, userId, amount }: { paymentId: number; userId: string; amount: number }) =>
+    mutationFn: ({ paymentId, userId, amount }: { paymentId: string; userId: string; amount: number }) =>
       approvePayment(paymentId, userId, amount),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_PAYMENTS_KEY });
@@ -104,7 +104,7 @@ export function useApprovePayment() {
 export function useRejectPayment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ paymentId, userId }: { paymentId: number; userId: string }) =>
+    mutationFn: ({ paymentId, userId }: { paymentId: string; userId: string }) =>
       rejectPayment(paymentId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_PAYMENTS_KEY });

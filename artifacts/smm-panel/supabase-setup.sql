@@ -36,7 +36,11 @@ create table if not exists public.profiles (
   created_at timestamptz default now()
 );
 
--- MIGRATION: Add columns if table already exists without them
+-- MIGRATION: Add columns if tables already exist without them
+alter table public.platforms add column if not exists color text default '#7c3aed';
+alter table public.platforms add column if not exists icon text default '⭐';
+alter table public.platforms add column if not exists status text not null default 'active';
+
 alter table public.profiles add column if not exists name text;
 alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists balance numeric(10,2) not null default 0;
@@ -57,7 +61,7 @@ create table if not exists public.orders (
 
 -- 5. PAYMENTS TABLE
 create table if not exists public.payments (
-  id serial primary key,
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   amount numeric(10,2) not null check (amount > 0),
   method text not null check (method in ('zaincash', 'qicard', 'manual')),
@@ -68,8 +72,10 @@ create table if not exists public.payments (
   created_at timestamptz default now()
 );
 
--- Add proof_url if table already exists (safe migration)
+-- Safe migrations for existing tables
 alter table public.payments add column if not exists proof_url text;
+alter table public.payments add column if not exists notes text;
+alter table public.payments add column if not exists transaction_id text;
 
 -- 6. NOTIFICATIONS TABLE
 create table if not exists public.notifications (
@@ -80,6 +86,12 @@ create table if not exists public.notifications (
   is_read boolean not null default false,
   created_at timestamptz default now()
 );
+
+-- Safe migrations for existing notifications table
+alter table public.notifications add column if not exists title text;
+alter table public.notifications add column if not exists message text;
+alter table public.notifications add column if not exists is_read boolean not null default false;
+alter table public.notifications add column if not exists created_at timestamptz default now();
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES

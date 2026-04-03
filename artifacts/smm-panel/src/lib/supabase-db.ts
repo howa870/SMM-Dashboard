@@ -40,7 +40,7 @@ export type Profile = {
 };
 
 export type Payment = {
-  id: number;
+  id: string;
   user_id: string;
   amount: number;
   method: "zaincash" | "qicard" | "manual";
@@ -268,7 +268,7 @@ export async function getAllPayments(): Promise<Payment[]> {
   return data as Payment[];
 }
 
-export async function approvePayment(paymentId: number, userId: string, amount: number): Promise<void> {
+export async function approvePayment(paymentId: string, userId: string, amount: number): Promise<void> {
   const { data: profileData, error: profileError } = await supabase
     .from("profiles")
     .select("balance")
@@ -297,7 +297,7 @@ export async function approvePayment(paymentId: number, userId: string, amount: 
   });
 }
 
-export async function rejectPayment(paymentId: number, userId: string): Promise<void> {
+export async function rejectPayment(paymentId: string, userId: string): Promise<void> {
   const { error } = await supabase
     .from("payments")
     .update({ status: "rejected" })

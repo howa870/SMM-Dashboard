@@ -136,11 +136,19 @@ router.post("/webhook", async (req, res) => {
   const chatId = message?.chat.id;
   const messageId = message?.message_id;
 
-  // Parse action and payment ID
-  const approveMatch = data.match(/^approve_(\d+)$/);
-  const rejectMatch = data.match(/^reject_(\d+)$/);
+  // Parse action and payment ID (supports both integer IDs and UUID IDs)
+  // callback_data format: "approve_<id>" or "reject_<id>"
+  const approveMatch = data.match(/^approve_(.+)$/);
+  const rejectMatch = data.match(/^reject_(.+)$/);
+
+  // Ignore non-action callbacks (e.g. "done" button after processing)
+  if (data === "done") {
+    await answerCallbackQuery(callbackId, "✅ تمت المعالجة مسبقاً");
+    return;
+  }
 
   if (!approveMatch && !rejectMatch) {
+    console.log("[Telegram Webhook] Unknown callback data:", data);
     await answerCallbackQuery(callbackId, "⚠️ طلب غير معروف");
     return;
   }
@@ -151,8 +159,11 @@ router.post("/webhook", async (req, res) => {
     return;
   }
 
-  const paymentId = Number(approveMatch?.[1] || rejectMatch?.[1]);
+  // Use string ID (works for both integer and UUID primary keys)
+  const paymentId = approveMatch?.[1] || rejectMatch?.[1] || "";
   const isApprove = !!approveMatch;
+
+  console.log(`[Telegram Webhook] ${isApprove ? "APPROVE" : "REJECT"} payment ID: ${paymentId}`);
 
   try {
     // Fetch the payment
@@ -163,13 +174,13 @@ router.post("/webhook", async (req, res) => {
       .single();
 
     if (fetchErr || !payment) {
-      console.error("[Telegram Webhook] Payment not found:", paymentId, fetchErr);
-      await answerCallbackQuery(callbackId, `❌ الطلب #${paymentId} غير موجود`);
+      console.error("[Telegram Webhook] Payment not found:", paymentId, fetchErr?.message);
+      await answerCallbackQuery(callbackId, `❌ الطلب غير موجود (${paymentId.slice(0, 8)}...)`);
       return;
     }
 
     if (payment.status !== "pending") {
-      await answerCallbackQuery(callbackId, `⚠️ الطلب #${paymentId} تمت معالجته مسبقاً (${payment.status})`);
+      await answerCallbackQuery(callbackId, `⚠️ الطلب تمت معالجته مسبقاً: ${payment.status}`);
       return;
     }
 
