@@ -69,8 +69,111 @@ function detectPlatform(name: string, category: string): string {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// SERVICE QUALITY FILTER
+// Keeps only high-quality services, removes spam/bots, max 20 per platform
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Keywords that signal a HIGH-QUALITY service (any match = quality tier)
+// Includes Followiz shorthands: [r7] [r30] [r90] = refill 7/30/90 days
+const QUALITY_KEYWORDS = [
+  "high quality",
+  "no drop",
+  "real",
+  "refill",
+  "[r7]", "[r30]", "[r60]", "[r90]", "[r365]",  // Followiz refill shorthands
+  "guaranteed",
+  "hq",
+];
+
+// Keywords that always EXCLUDE a service (any match = removed)
+const BLACKLIST_KEYWORDS = ["cheap", "low quality", "bot", "test", "trial"];
+
+// Max services to keep per platform
+const MAX_PER_PLATFORM = 20;
+
+// Quality score: higher = better. Returns 0 if no quality signal.
+function qualityScore(name: string): number {
+  const n = name.toLowerCase();
+  if (n.includes("no drop"))      return 5;   // best: no drop guarantee
+  if (n.includes("high quality") || n.includes("hq")) return 4;
+  if (n.includes("real"))         return 3;
+  if (n.includes("guaranteed"))   return 2;
+  // Refill shorthands [r365] > [r90] > [r30] > [r7]
+  if (n.includes("[r365]"))       return 4;
+  if (n.includes("[r90]"))        return 3;
+  if (n.includes("[r60]"))        return 3;
+  if (n.includes("[r30]"))        return 2;
+  if (n.includes("[r7]"))         return 1;
+  if (n.includes("refill"))       return 1;
+  return 0;
+}
+
+function filterAndRankServices(raw: FollowizService[]): FollowizService[] {
+  // Step 1: Remove duplicates by provider_service_id
+  const seen = new Set<string>();
+  const deduped = raw.filter(s => {
+    const key = String(s.service);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Step 2: Remove blacklisted services (cheap/bot/test/etc.)
+  const cleaned = deduped.filter(s => {
+    const n = s.name.toLowerCase();
+    return !BLACKLIST_KEYWORDS.some(kw => n.includes(kw));
+  });
+
+  // Step 3: Separate into quality tier and standard tier
+  const qualityTier  = cleaned.filter(s => QUALITY_KEYWORDS.some(kw => s.name.toLowerCase().includes(kw)));
+  const standardTier = cleaned.filter(s => !QUALITY_KEYWORDS.some(kw => s.name.toLowerCase().includes(kw)));
+
+  // Step 4: Sort each tier — quality score desc, then rate asc (cheapest first)
+  const sortFn = (a: FollowizService, b: FollowizService) => {
+    const diff = qualityScore(b.name) - qualityScore(a.name);
+    if (diff !== 0) return diff;
+    return Number(a.rate) - Number(b.rate);
+  };
+  qualityTier.sort(sortFn);
+  standardTier.sort(sortFn);
+
+  // Step 5: Per platform — fill up to MAX_PER_PLATFORM from quality tier,
+  //         then backfill with standard tier if quality tier is thin
+  const byPlatform: Record<string, { quality: FollowizService[]; standard: FollowizService[] }> = {};
+
+  for (const s of qualityTier) {
+    const p = detectPlatform(s.name, s.category);
+    if (!byPlatform[p]) byPlatform[p] = { quality: [], standard: [] };
+    byPlatform[p].quality.push(s);
+  }
+  for (const s of standardTier) {
+    const p = detectPlatform(s.name, s.category);
+    if (!byPlatform[p]) byPlatform[p] = { quality: [], standard: [] };
+    byPlatform[p].standard.push(s);
+  }
+
+  const result: FollowizService[] = [];
+  const platformSummary: string[] = [];
+
+  for (const [platform, { quality, standard }] of Object.entries(byPlatform)) {
+    // Take all quality-tier services first (up to MAX)
+    const take = quality.slice(0, MAX_PER_PLATFORM);
+    // If quality tier is fewer than MAX, backfill from standard tier
+    if (take.length < MAX_PER_PLATFORM) {
+      const backfill = standard.slice(0, MAX_PER_PLATFORM - take.length);
+      take.push(...backfill);
+    }
+    result.push(...take);
+    platformSummary.push(`${platform}:${take.length}(q${quality.length})`);
+  }
+
+  console.log(`[SMM] Filter result: ${result.length} services | ${platformSummary.join(", ")}`);
+  return result;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // AUTO-SYNC ENGINE
-// Fetches from Followiz → upserts to Supabase
+// Fetches from Followiz → filters → upserts to Supabase
 // Price = rate * 1.3 * 1300  (USD × 30% profit × 1300 IQD/USD)
 // ══════════════════════════════════════════════════════════════════════════════
 let lastDbSyncTime = 0;       // epoch ms of last successful DB sync
@@ -104,8 +207,12 @@ async function autoSyncServicesToDb(): Promise<number> {
       return 0;
     }
 
-    // 2. Build rows — price = rate * 1.3 * 1300 IQD
-    const rows = followizServices.map(svc => ({
+    // 2. Filter & rank — keep only high-quality services, max 20 per platform
+    const filtered = filterAndRankServices(followizServices);
+    console.log(`[SMM] Filtered: ${filtered.length}/${followizServices.length} services kept`);
+
+    // 3. Build upsert rows — price = rate * 1.3 * 1300 IQD
+    const rows = filtered.map(svc => ({
       provider:            "followiz",
       provider_service_id: String(svc.service),
       name:                svc.name,
@@ -117,8 +224,9 @@ async function autoSyncServicesToDb(): Promise<number> {
       status:              "active",
     }));
 
-    // 3. Upsert in batches (onConflict = provider_service_id unique index)
+    // 4. Upsert in batches (onConflict = provider_service_id unique index)
     let total = 0;
+    const keptIds = new Set(rows.map(r => r.provider_service_id));
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
       const batch = rows.slice(i, i + BATCH_SIZE);
       const { data, error } = await adminDb
@@ -128,15 +236,42 @@ async function autoSyncServicesToDb(): Promise<number> {
 
       if (error) {
         console.error(`[SMM] Batch ${Math.floor(i / BATCH_SIZE) + 1} upsert error:`, error.message);
-        // Continue with next batch — don't abort entire sync
       } else {
         total += data?.length || 0;
         console.log(`[SMM] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(rows.length / BATCH_SIZE)}: ${data?.length} rows`);
       }
     }
 
+    // 5. Deactivate old Followiz services NOT in the filtered set
+    try {
+      const { data: existing } = await adminDb
+        .from("services")
+        .select("provider_service_id")
+        .eq("provider", "followiz")
+        .eq("status", "active");
+
+      const toDeactivate = (existing || [])
+        .map(r => r.provider_service_id)
+        .filter(id => id && !keptIds.has(id));
+
+      if (toDeactivate.length > 0) {
+        const { error: deactErr } = await adminDb
+          .from("services")
+          .update({ status: "inactive" })
+          .eq("provider", "followiz")
+          .in("provider_service_id", toDeactivate);
+        if (deactErr) {
+          console.warn("[SMM] Deactivate error:", deactErr.message);
+        } else {
+          console.log(`[SMM] Deactivated ${toDeactivate.length} removed/low-quality services`);
+        }
+      }
+    } catch (deactErr) {
+      console.warn("[SMM] Could not deactivate old services:", deactErr);
+    }
+
     lastDbSyncTime = Date.now();
-    console.log(`[SMM] ✅ Auto-sync complete: ${total}/${rows.length} services upserted`);
+    console.log(`[SMM] ✅ Auto-sync complete: ${total}/${filtered.length} services upserted`);
     return total;
 
   } catch (err) {
@@ -191,9 +326,11 @@ async function verifyToken(authHeader?: string): Promise<string | null> {
   }
 }
 
-// Build a Service array from raw Followiz data (used as fallback when DB missing columns)
+// Build a Service array from raw Followiz data (fallback when DB migration not run)
+// Applies the same filtering + ranking as the DB sync engine
 function followizToServices(raw: FollowizService[]) {
-  return raw.map(svc => ({
+  const filtered = filterAndRankServices(raw);
+  return filtered.map(svc => ({
     id:                  svc.service,
     name:                svc.name,
     category:            svc.category,
