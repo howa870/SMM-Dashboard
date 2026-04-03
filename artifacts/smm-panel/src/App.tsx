@@ -15,6 +15,7 @@ import { Services } from "@/pages/services";
 import { NewOrder } from "@/pages/order";
 import { Orders } from "@/pages/orders";
 import { Wallet } from "@/pages/wallet";
+import { Transactions } from "@/pages/transactions";
 import { AdminDashboard } from "@/pages/admin/dashboard";
 import { AdminPayments } from "@/pages/admin/payments";
 import { AdminOrders } from "@/pages/admin/orders";
@@ -30,6 +31,7 @@ const ROUTES: Record<string, React.ComponentType> = {
   "/order": NewOrder,
   "/orders": Orders,
   "/wallet": Wallet,
+  "/transactions": Transactions,
   "/admin": AdminDashboard,
   "/admin/payments": AdminPayments,
   "/admin/orders": AdminOrders,

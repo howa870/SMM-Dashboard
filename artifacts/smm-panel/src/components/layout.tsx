@@ -1,4 +1,5 @@
 import { Sidebar } from "./sidebar";
+import { NotificationsBell } from "./notifications-bell";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
@@ -32,6 +33,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-[100dvh] flex bg-background text-foreground overflow-hidden">
       <Sidebar />
       <main className="flex-1 flex flex-col h-[100dvh] overflow-auto">
+        {/* Header Bar */}
+        <div className="sticky top-0 z-10 flex items-center justify-end px-8 py-4 border-b border-white/5 bg-background/80 backdrop-blur-xl">
+          <NotificationsBell />
+        </div>
         <div className="p-8 max-w-7xl mx-auto w-full">
           {children}
         </div>

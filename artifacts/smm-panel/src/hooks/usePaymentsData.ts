@@ -8,25 +8,65 @@ import {
   type Payment,
 } from "@/lib/supabase-db";
 import { useSupabaseAuth } from "@/context/AuthContext";
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export const PAYMENTS_KEY = ["supabase", "payments"];
 export const ADMIN_PAYMENTS_KEY = ["supabase", "admin", "payments"];
 
 export function useUserPayments() {
   const { supabaseUser } = useSupabaseAuth();
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: [...PAYMENTS_KEY, supabaseUser?.id],
     queryFn: () => getUserPayments(supabaseUser!.id),
     enabled: !!supabaseUser,
   });
+
+  useEffect(() => {
+    if (!supabaseUser) return;
+    const channel = supabase
+      .channel(`payments:${supabaseUser.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "payments",
+        filter: `user_id=eq.${supabaseUser.id}`,
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: [...PAYMENTS_KEY, supabaseUser.id] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [supabaseUser, queryClient]);
+
+  return query;
 }
 
 export function useAllPayments() {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: ADMIN_PAYMENTS_KEY,
     queryFn: getAllPayments,
     refetchInterval: 30 * 1000,
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-payments")
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "payments",
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ADMIN_PAYMENTS_KEY });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
+
+  return query;
 }
 
 export function useCreatePayment() {
@@ -56,7 +96,8 @@ export function useApprovePayment() {
 export function useRejectPayment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (paymentId: number) => rejectPayment(paymentId),
+    mutationFn: ({ paymentId, userId }: { paymentId: number; userId: string }) =>
+      rejectPayment(paymentId, userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_PAYMENTS_KEY });
     },

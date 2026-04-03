@@ -55,8 +55,22 @@ create table if not exists public.payments (
   amount numeric(10,2) not null check (amount > 0),
   method text not null check (method in ('zaincash', 'qicard', 'manual')),
   transaction_id text,
+  proof_url text,
   notes text,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamptz default now()
+);
+
+-- Add proof_url if table already exists (safe migration)
+alter table public.payments add column if not exists proof_url text;
+
+-- 6. NOTIFICATIONS TABLE
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  message text not null,
+  is_read boolean not null default false,
   created_at timestamptz default now()
 );
 
@@ -69,6 +83,7 @@ alter table public.services enable row level security;
 alter table public.profiles enable row level security;
 alter table public.orders enable row level security;
 alter table public.payments enable row level security;
+alter table public.notifications enable row level security;
 
 -- Platforms: anyone can read
 drop policy if exists "platforms_select" on public.platforms;
@@ -118,6 +133,19 @@ drop policy if exists "payments_update_admin" on public.payments;
 create policy "payments_update_admin" on public.payments for update using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
 );
+
+-- Notifications: users can see/update their own
+drop policy if exists "notifications_select_own" on public.notifications;
+create policy "notifications_select_own" on public.notifications for select using (auth.uid() = user_id);
+
+drop policy if exists "notifications_insert_admin" on public.notifications;
+create policy "notifications_insert_admin" on public.notifications for insert with check (
+  auth.uid() = user_id
+  or exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
+
+drop policy if exists "notifications_update_own" on public.notifications;
+create policy "notifications_update_own" on public.notifications for update using (auth.uid() = user_id);
 
 -- ============================================================
 -- SEED: PLATFORMS
@@ -207,6 +235,43 @@ create trigger on_auth_user_created
 -- HOW TO ADD A PAYMENT (for testing):
 -- insert into public.payments (user_id, amount, method, transaction_id, notes)
 -- values ('USER-UUID-HERE', 5000, 'zaincash', 'TX123456', 'test payment');
+
+-- ============================================================
+-- REALTIME: Enable Realtime for tables
+-- ============================================================
+-- Run in Supabase Dashboard → Database → Replication:
+-- Enable realtime on: payments, notifications, profiles
+--
+-- OR run these SQL commands:
+alter publication supabase_realtime add table public.payments;
+alter publication supabase_realtime add table public.notifications;
+alter publication supabase_realtime add table public.profiles;
+
+-- ============================================================
+-- STORAGE: Create payment_proofs bucket
+-- ============================================================
+-- Run in Supabase Dashboard → Storage → New Bucket:
+-- Name: payment_proofs
+-- Public: true (or set up RLS on storage)
+--
+-- OR run via SQL:
+insert into storage.buckets (id, name, public) values ('payment_proofs', 'payment_proofs', true)
+on conflict (id) do nothing;
+
+-- Storage policy: allow authenticated users to upload to their own folder
+create policy "users_upload_proof" on storage.objects for insert
+  with check (bucket_id = 'payment_proofs' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create policy "public_view_proof" on storage.objects for select
+  using (bucket_id = 'payment_proofs');
+
+-- ============================================================
+-- TELEGRAM SETUP (Optional)
+-- ============================================================
+-- Set these environment variables in your Replit Secrets:
+--   TELEGRAM_BOT_TOKEN = your bot token from @BotFather
+--   TELEGRAM_CHAT_ID = your admin group/channel chat ID
+--   ADMIN_URL = https://your-app-url.replit.app/#/admin/payments
 
 -- Done!
 select 'Setup complete! Tables created, RLS configured, data seeded.' as result;
