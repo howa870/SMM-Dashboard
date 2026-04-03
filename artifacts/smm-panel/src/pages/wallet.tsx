@@ -130,6 +130,11 @@ export function Wallet() {
       toast({ variant: "destructive", title: "المبلغ يجب أن يكون 1000 IQD على الأقل" });
       return;
     }
+    if (!proofFile) {
+      toast({ variant: "destructive", title: "صورة الإثبات مطلوبة", description: "يرجى رفع صورة إثبات التحويل قبل الإرسال." });
+      fileInputRef.current?.click();
+      return;
+    }
 
     let proof_url: string | undefined;
 
@@ -303,10 +308,13 @@ export function Wallet() {
 
                   {/* Proof Upload */}
                   <div className="space-y-2">
-                    <Label className="text-gray-300">صورة إثبات الدفع <span className="text-gray-500 text-xs">(اختياري)</span></Label>
+                    <Label className="text-gray-300">
+                      صورة إثبات الدفع{" "}
+                      <span className="text-red-400 text-xs font-bold">* إجباري</span>
+                    </Label>
                     <div
                       onClick={() => fileInputRef.current?.click()}
-                      className={`cursor-pointer rounded-xl border-2 border-dashed transition-all p-4 text-center ${proofPreview ? "border-purple-500/50 bg-purple-500/10" : "border-white/10 bg-white/5 hover:border-purple-500/30 hover:bg-white/10"}`}>
+                      className={`cursor-pointer rounded-xl border-2 border-dashed transition-all p-4 text-center ${proofPreview ? "border-purple-500/50 bg-purple-500/10" : "border-red-500/30 bg-red-500/5 hover:border-purple-500/30 hover:bg-white/10"}`}>
                       {proofPreview ? (
                         <div className="relative">
                           <img src={proofPreview} alt="proof" className="w-full max-h-32 object-contain rounded-lg" />

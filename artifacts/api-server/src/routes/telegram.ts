@@ -438,7 +438,7 @@ async function approvePayment(paymentId: string, adminName: string): Promise<str
   }).then(r => { if (r.error) console.warn("[TG] approve notif:", r.error.message); });
 
   console.log(`[TG] ✅ Approved ${paymentId} — +${payment.amount} IQD → ${payment.user_id}`);
-  return `✅ <b>تم قبول الطلب</b>\n💰 أُضيف ${Number(payment.amount).toLocaleString()} IQD للمستخدم\n👤 بواسطة: ${adminName}`;
+  return `💰 المبلغ المُضاف: <b>${Number(payment.amount).toLocaleString()} IQD</b>\n🆔 رقم الطلب: <code>${String(paymentId).slice(0,8)}…</code>\n👤 بواسطة: ${adminName}`;
 }
 
 async function rejectPayment(paymentId: string, adminName: string): Promise<string> {
@@ -463,7 +463,7 @@ async function rejectPayment(paymentId: string, adminName: string): Promise<stri
   }).then(r => { if (r.error) console.warn("[TG] reject notif:", r.error.message); });
 
   console.log(`[TG] ❌ Rejected ${paymentId} by ${adminName}`);
-  return `❌ <b>تم رفض الطلب</b>\n👤 بواسطة: ${adminName}`;
+  return `🆔 رقم الطلب: <code>${String(paymentId).slice(0,8)}…</code>\n👤 بواسطة: ${adminName}`;
 }
 
 // ─── /setnumbers COMMAND ──────────────────────────────────────────────────────
@@ -637,13 +637,26 @@ async function handleCallback(
   // ── Approve payment ─────────────────────────────────────────────────────────
   if (data.startsWith("approve_")) {
     const paymentId = data.slice("approve_".length);
-    await answerCallback(callbackId, "جاري القبول...");
+    await answerCallback(callbackId, "✅ جاري القبول...");
     const result = await approvePayment(paymentId, fromName);
-    await sendMessage(chatId, result, { reply_markup: MAIN_MENU });
+    // Edit the original payment message to show approved status
     if (msgId) {
-      await editMarkup(chatId, msgId, {
-        inline_keyboard: [[{ text: `✅ قُبِل بواسطة ${fromName}`, callback_data: "done" }]],
-      });
+      await editMessage(chatId, msgId,
+        [
+          "✅ <b>تم القبول بنجاح</b>",
+          "",
+          result,
+          "",
+          `🕐 ${new Date().toLocaleString("ar-IQ")}`,
+        ].join("\n"),
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: `✅ تم القبول بواسطة ${fromName}`, callback_data: "done" },
+            ]],
+          },
+        }
+      );
     }
     return;
   }
@@ -651,13 +664,26 @@ async function handleCallback(
   // ── Reject payment ──────────────────────────────────────────────────────────
   if (data.startsWith("reject_")) {
     const paymentId = data.slice("reject_".length);
-    await answerCallback(callbackId, "جاري الرفض...");
+    await answerCallback(callbackId, "❌ جاري الرفض...");
     const result = await rejectPayment(paymentId, fromName);
-    await sendMessage(chatId, result, { reply_markup: MAIN_MENU });
+    // Edit the original payment message to show rejected status
     if (msgId) {
-      await editMarkup(chatId, msgId, {
-        inline_keyboard: [[{ text: `❌ رُفض بواسطة ${fromName}`, callback_data: "done" }]],
-      });
+      await editMessage(chatId, msgId,
+        [
+          "❌ <b>تم الرفض</b>",
+          "",
+          result,
+          "",
+          `🕐 ${new Date().toLocaleString("ar-IQ")}`,
+        ].join("\n"),
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: `❌ تم الرفض بواسطة ${fromName}`, callback_data: "done" },
+            ]],
+          },
+        }
+      );
     }
     return;
   }
