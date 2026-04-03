@@ -261,21 +261,27 @@ async function autoSyncServicesToDb(): Promise<number> {
     }));
 
     // 4. Upsert in batches (onConflict = provider_service_id unique index)
+    // Helper: upsert a batch, retry without service_type if column missing
+    const upsertBatch = async (batch: typeof rows) => {
+      const { error } = await adminDb.from("services").upsert(batch, { onConflict: "provider_service_id" });
+      if (error && error.message.includes("service_type")) {
+        // Column doesn't exist yet — retry without it
+        const slim = batch.map(({ service_type: _st, ...rest }) => rest);
+        const { error: e2 } = await adminDb.from("services").upsert(slim, { onConflict: "provider_service_id" });
+        if (e2) { console.warn("[SMM] Batch upsert error (slim):", e2.message); return 0; }
+        return slim.length;
+      }
+      if (error) { console.warn("[SMM] Batch upsert error:", error.message); return 0; }
+      return batch.length;
+    };
+
     let total = 0;
     const keptIds = new Set(rows.map(r => r.provider_service_id));
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
       const batch = rows.slice(i, i + BATCH_SIZE);
-      const { data, error } = await adminDb
-        .from("services")
-        .upsert(batch, { onConflict: "provider_service_id" })
-        .select("id");
-
-      if (error) {
-        console.error(`[SMM] Batch ${Math.floor(i / BATCH_SIZE) + 1} upsert error:`, error.message);
-      } else {
-        total += data?.length || 0;
-        console.log(`[SMM] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(rows.length / BATCH_SIZE)}: ${data?.length} rows`);
-      }
+      const n = await upsertBatch(batch);
+      total += n;
+      console.log(`[SMM] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(rows.length / BATCH_SIZE)}: ${n} rows`);
     }
 
     // 5. Deactivate old Followiz services NOT in the filtered set
@@ -539,17 +545,53 @@ router.post("/order", async (req, res) => {
     res.status(400).json({ ok: false, error: "الكمية يجب أن تكون عدداً صحيحاً موجباً" }); return;
   }
 
-  // 1. Load service
-  const { data: svc, error: svcErr } = await adminDb
-    .from("services")
-    .select("id, name, price, min_order, max_order, provider, provider_service_id")
-    .eq("id", Number(service_id))
-    .maybeSingle();
+  // 1. Load service — try DB by numeric id → provider_service_id → Followiz direct
+  type SvcRow = { id: number | null; name: string; price: number; min_order: number; max_order: number; provider: string | null; provider_service_id: string | null };
+  let svc: SvcRow | null = null;
 
-  if (svcErr || !svc) {
+  // 1a. Try DB by primary key
+  {
+    const { data } = await adminDb.from("services")
+      .select("id, name, price, min_order, max_order, provider, provider_service_id")
+      .eq("id", Number(service_id)).maybeSingle();
+    if (data) svc = data as SvcRow;
+  }
+
+  // 1b. Not found by PK → try provider_service_id
+  if (!svc) {
+    const { data } = await adminDb.from("services")
+      .select("id, name, price, min_order, max_order, provider, provider_service_id")
+      .eq("provider_service_id", String(service_id)).maybeSingle();
+    if (data) svc = data as SvcRow;
+  }
+
+  // 1c. Still not found → DB migration not run; fetch from Followiz API directly
+  if (!svc) {
+    console.log(`[SMM] Service ${service_id} not in DB — falling back to Followiz API...`);
+    try {
+      const all = await followizRequest({ action: "services" }) as FollowizService[];
+      const raw = all.find(s => String(s.service) === String(service_id));
+      if (raw) {
+        svc = {
+          id:                  null,   // no DB row exists
+          name:                raw.name,
+          price:               Math.ceil(Number(raw.rate) * 1.3 * 1300),
+          min_order:           Number(raw.min),
+          max_order:           Number(raw.max),
+          provider:            "followiz",
+          provider_service_id: String(raw.service),
+        };
+        console.log(`[SMM] ✅ Followiz fallback: ${svc.name} | price=${svc.price}`);
+      }
+    } catch (e) {
+      console.error("[SMM] Followiz fallback lookup failed:", e);
+    }
+  }
+
+  if (!svc) {
     res.status(404).json({ ok: false, error: "الخدمة غير موجودة" }); return;
   }
-  console.log(`[SMM] Service: ${svc.name} | price=${svc.price}/1000 | provider=${svc.provider}`);
+  console.log(`[SMM] ✅ Service: ${svc.name} | price=${svc.price}/1000 | provider=${svc.provider}`);
 
   if (qty < svc.min_order) { res.status(400).json({ ok: false, error: `أقل كمية: ${svc.min_order.toLocaleString()}` }); return; }
   if (qty > svc.max_order) { res.status(400).json({ ok: false, error: `أقصى كمية: ${svc.max_order.toLocaleString()}` }); return; }
@@ -572,9 +614,18 @@ router.post("/order", async (req, res) => {
   }
   console.log(`[SMM] ✅ Deducted IQD ${totalPrice}`);
 
+  // Helper: refund balance (always works, no RPC dependency)
+  const refundBalance = async () => {
+    const { data: prof } = await adminDb.from("profiles").select("balance").eq("id", userId).maybeSingle();
+    const newBal = Number(prof?.balance || 0) + totalPrice;
+    await adminDb.from("profiles").update({ balance: newBal }).eq("id", userId);
+    console.log(`[SMM] 🔄 Refunded IQD ${totalPrice} → new balance: ${newBal}`);
+  };
+
   // 4. Place order with Followiz
   let providerOrderId: string | null = null;
   if (svc.provider === "followiz" && svc.provider_service_id) {
+    console.log(`[SMM] → Sending to Followiz: service=${svc.provider_service_id}, qty=${qty}`);
     try {
       const result = await followizRequest({
         action: "add", service: String(svc.provider_service_id), link, quantity: String(qty),
@@ -582,34 +633,49 @@ router.post("/order", async (req, res) => {
 
       if (result.order) {
         providerOrderId = String(result.order);
-        console.log(`[SMM] ✅ Followiz order: ${providerOrderId}`);
+        console.log(`[SMM] ✅ Followiz accepted: order_id=${providerOrderId}`);
       } else {
-        // Refund then return error
-        console.error("[SMM] Followiz rejected:", result);
-        await adminDb.rpc("increment_balance", { uid: userId, amount: totalPrice }).catch(() =>
-          adminDb.from("profiles").select("balance").eq("id", userId).maybeSingle()
-            .then(({ data }) => data && adminDb.from("profiles").update({ balance: Number(data.balance) + totalPrice }).eq("id", userId))
-        );
-        res.status(400).json({ ok: false, error: String(result.error || "رفض المزود الطلب") }); return;
+        console.error("[SMM] ❌ Followiz rejected:", JSON.stringify(result));
+        await refundBalance();
+        res.status(400).json({ ok: false, error: String(result.error || "رفض المزود الطلب — تم استرداد رصيدك") }); return;
       }
     } catch (err) {
-      console.error("[SMM] Followiz API error:", err);
-      await adminDb.rpc("increment_balance", { uid: userId, amount: totalPrice }).catch(() => null);
-      res.status(502).json({ ok: false, error: "تعذر الاتصال بمزود الخدمة" }); return;
+      console.error("[SMM] ❌ Followiz request failed:", err);
+      await refundBalance();
+      res.status(502).json({ ok: false, error: "تعذر الاتصال بمزود الخدمة — تم استرداد رصيدك" }); return;
     }
   }
 
-  // 5. Save order
+  // 5. Save order to DB
   const { data: order, error: orderErr } = await adminDb.from("orders").insert({
-    user_id: userId, service_id: svc.id, link, quantity: qty,
-    total_price: totalPrice, status: "pending",
-    provider_order_id: providerOrderId, provider_service_id: svc.provider_service_id || null,
+    user_id:           userId,
+    service_id:        svc.id,   // may be null when service came from Followiz direct
+    link,
+    quantity:          qty,
+    total_price:       totalPrice,
+    status:            "pending",
+    provider_order_id: providerOrderId,
+    provider_service_id: svc.provider_service_id || null,
   }).select().single();
 
-  if (orderErr) { res.status(500).json({ ok: false, error: "فشل حفظ الطلب" }); return; }
+  if (orderErr) {
+    console.error("[SMM] Order DB save failed:", orderErr.message);
+    // Still a success from the provider side — don't refund
+    res.status(500).json({ ok: false, error: "الطلب أُرسل للمزود لكن فشل الحفظ في قاعدة البيانات" }); return;
+  }
 
-  console.log(`[SMM] ✅ Order saved: id=${order.id}, followiz=${providerOrderId}`);
-  res.status(201).json({ ok: true, order, provider_order_id: providerOrderId, service: { id: svc.id, name: svc.name, price: svc.price }, total_price: totalPrice });
+  console.log(`[SMM] ✅ Order saved: id=${order.id} | followiz=${providerOrderId} | total=IQD${totalPrice}`);
+  res.status(201).json({
+    ok:                true,
+    order_id:          order.id,
+    order,
+    provider_order_id: providerOrderId,
+    service:           { id: svc.id, name: svc.name, price: svc.price },
+    total_price:       totalPrice,
+    message:           providerOrderId
+      ? `تم إرسال طلبك بنجاح! رقم الطلب: ${providerOrderId}`
+      : `تم إنشاء طلبك بنجاح! رقم: ${order.id}`,
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
