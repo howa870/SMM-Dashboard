@@ -9,13 +9,16 @@ export type Platform = {
 
 export type Service = {
   id: number;
-  platform_id: number;
+  platform_id: number | null;
   name: string;
   description: string | null;
+  category: string | null;
   price: number;
   min_order: number;
   max_order: number;
   status: string;
+  provider: string | null;
+  provider_service_id: string | null;
   platforms?: { name: string };
 };
 

@@ -10,9 +10,21 @@ import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Settings, Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Loader2, Settings, Plus, Pencil, Trash2, Search, Globe } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Service, Platform } from "@/lib/supabase-db";
+
+const SMM_BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") + "/api/smm";
+
+async function syncServices(token: string): Promise<{ synced: number; total: number; message: string }> {
+  const res = await fetch(`${SMM_BASE}/sync-services`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
+  const json = await res.json() as { ok: boolean; synced: number; total: number; message: string; error?: string };
+  if (!res.ok || !json.ok) throw new Error(json.error || "فشل المزامنة");
+  return json;
+}
 
 async function getAllServices(): Promise<Service[]> {
   const { data, error } = await supabase
@@ -73,10 +85,28 @@ export function AdminServices() {
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form, setForm] = useState(BLANK_FORM);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [syncing,  setSyncing]  = useState(false);
 
   useEffect(() => {
     if (!profileLoading && profile && profile.role !== "admin") setLocation("/");
   }, [profile, profileLoading, setLocation]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+      if (!token) throw new Error("الجلسة منتهية");
+      const result = await syncServices(token);
+      queryClient.invalidateQueries({ queryKey: ["supabase"] });
+      toast({ title: `✅ ${result.message}`, description: `تم مزامنة ${result.total} خدمة من Followiz` });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "خطأ في المزامنة";
+      toast({ variant: "destructive", title: "فشل المزامنة", description: msg });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const { data: services, isLoading } = useQuery({
     queryKey: ["supabase", "admin", "services"],
@@ -238,11 +268,20 @@ export function AdminServices() {
             </h1>
             <p className="text-gray-400">إضافة وتعديل وحذف الخدمات المتاحة</p>
           </div>
-          <Button onClick={openAdd}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl gap-2">
-            <Plus className="w-5 h-5" />
-            إضافة خدمة
-          </Button>
+          <div className="flex gap-3 flex-wrap">
+            {/* Sync Followiz Services */}
+            <Button onClick={handleSync} disabled={syncing}
+              className="bg-gradient-to-r from-green-700 to-teal-700 hover:from-green-800 hover:to-teal-800 text-white rounded-xl gap-2">
+              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+              {syncing ? "جاري المزامنة..." : "مزامنة خدمات Followiz"}
+            </Button>
+            {/* Add Local Service */}
+            <Button onClick={openAdd}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl gap-2">
+              <Plus className="w-5 h-5" />
+              إضافة خدمة
+            </Button>
+          </div>
         </header>
 
         <div className="relative">

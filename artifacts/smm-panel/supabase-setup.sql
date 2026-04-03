@@ -360,6 +360,17 @@ alter table public.payments
 -- Run these in Supabase SQL Editor
 -- ============================================================
 
+-- ── Services table: add provider columns ──────────────────────────────────
+alter table public.services alter column platform_id drop not null;
+alter table public.services add column if not exists category            text;
+alter table public.services add column if not exists provider            text default 'local';
+alter table public.services add column if not exists provider_service_id text;
+
+-- Unique constraint on provider_service_id for upsert (ON CONFLICT)
+create unique index if not exists services_provider_service_id_key
+  on public.services (provider_service_id)
+  where provider_service_id is not null;
+
 -- Make service_id nullable (provider orders don't have a local service)
 alter table public.orders alter column service_id drop not null;
 
