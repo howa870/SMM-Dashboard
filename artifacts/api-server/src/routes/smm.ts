@@ -73,101 +73,136 @@ function detectPlatform(name: string, category: string): string {
 // Keeps only high-quality services, removes spam/bots, max 20 per platform
 // ══════════════════════════════════════════════════════════════════════════════
 
-// Keywords that signal a HIGH-QUALITY service (any match = quality tier)
-// Includes Followiz shorthands: [r7] [r30] [r90] = refill 7/30/90 days
+// ─── QUALITY KEYWORDS ─────────────────────────────────────────────────────────
+// Any of these in the name = quality tier (preferred)
 const QUALITY_KEYWORDS = [
-  "high quality",
-  "no drop",
-  "real",
-  "refill",
-  "[r7]", "[r30]", "[r60]", "[r90]", "[r365]",  // Followiz refill shorthands
-  "guaranteed",
-  "hq",
+  "high quality", "no drop", "real", "refill", "fast",
+  "[r7]", "[r30]", "[r60]", "[r90]", "[r365]",   // Followiz refill shorthands
+  "guaranteed", "hq",
 ];
 
-// Keywords that always EXCLUDE a service (any match = removed)
+// Any of these = blacklisted (always removed)
 const BLACKLIST_KEYWORDS = ["cheap", "low quality", "bot", "test", "trial"];
 
-// Max services to keep per platform
-const MAX_PER_PLATFORM = 20;
+// ─── SERVICE TYPE DETECTION ────────────────────────────────────────────────────
+type ServiceType = "Followers" | "Likes" | "Views" | "Comments" | "Other";
 
-// Quality score: higher = better. Returns 0 if no quality signal.
+const TYPE_LIMITS: Record<ServiceType, number> = {
+  Followers: 10,
+  Likes:      5,
+  Views:      5,
+  Comments:   5,
+  Other:      5,
+};
+
+const MAX_PER_PLATFORM = 30;
+
+function detectServiceType(name: string): ServiceType {
+  const n = name.toLowerCase();
+  if (/follower|member|subscriber|\bsubs?\b|audience|fan/.test(n)) return "Followers";
+  if (/\blikes?\b|heart|reaction|retweet|\bfave\b/.test(n))        return "Likes";
+  if (/\bviews?\b|watch|\bplays?\b|stream|impression/.test(n))     return "Views";
+  if (/comment|reply|review/.test(n))                               return "Comments";
+  return "Other";
+}
+
+// Quality score: higher = better
 function qualityScore(name: string): number {
   const n = name.toLowerCase();
-  if (n.includes("no drop"))      return 5;   // best: no drop guarantee
-  if (n.includes("high quality") || n.includes("hq")) return 4;
-  if (n.includes("real"))         return 3;
-  if (n.includes("guaranteed"))   return 2;
-  // Refill shorthands [r365] > [r90] > [r30] > [r7]
-  if (n.includes("[r365]"))       return 4;
-  if (n.includes("[r90]"))        return 3;
-  if (n.includes("[r60]"))        return 3;
-  if (n.includes("[r30]"))        return 2;
-  if (n.includes("[r7]"))         return 1;
-  if (n.includes("refill"))       return 1;
+  if (n.includes("no drop"))                          return 6;
+  if (n.includes("[r365]"))                           return 5;
+  if (n.includes("high quality") || n.includes("hq")) return 5;
+  if (n.includes("real"))                             return 4;
+  if (n.includes("[r90]") || n.includes("[r60]"))    return 3;
+  if (n.includes("fast"))                             return 3;
+  if (n.includes("guaranteed"))                       return 3;
+  if (n.includes("[r30]"))                            return 2;
+  if (n.includes("[r7]") || n.includes("refill"))    return 1;
   return 0;
 }
 
+// ─── MAIN FILTER FUNCTION ─────────────────────────────────────────────────────
 function filterAndRankServices(raw: FollowizService[]): FollowizService[] {
-  // Step 1: Remove duplicates by provider_service_id
+  // 1. Deduplicate
   const seen = new Set<string>();
   const deduped = raw.filter(s => {
-    const key = String(s.service);
-    if (seen.has(key)) return false;
-    seen.add(key);
+    const k = String(s.service);
+    if (seen.has(k)) return false;
+    seen.add(k);
     return true;
   });
 
-  // Step 2: Remove blacklisted services (cheap/bot/test/etc.)
-  const cleaned = deduped.filter(s => {
-    const n = s.name.toLowerCase();
-    return !BLACKLIST_KEYWORDS.some(kw => n.includes(kw));
-  });
+  // 2. Remove blacklisted
+  const cleaned = deduped.filter(s => !BLACKLIST_KEYWORDS.some(kw => s.name.toLowerCase().includes(kw)));
 
-  // Step 3: Separate into quality tier and standard tier
-  const qualityTier  = cleaned.filter(s => QUALITY_KEYWORDS.some(kw => s.name.toLowerCase().includes(kw)));
-  const standardTier = cleaned.filter(s => !QUALITY_KEYWORDS.some(kw => s.name.toLowerCase().includes(kw)));
+  // 3. Split quality tier vs standard tier
+  const isQuality = (s: FollowizService) => QUALITY_KEYWORDS.some(kw => s.name.toLowerCase().includes(kw));
+  const qualityTier  = cleaned.filter(isQuality);
+  const standardTier = cleaned.filter(s => !isQuality(s));
 
-  // Step 4: Sort each tier — quality score desc, then rate asc (cheapest first)
+  // 4. Sort each tier: quality score desc, then rate asc (best value first)
   const sortFn = (a: FollowizService, b: FollowizService) => {
-    const diff = qualityScore(b.name) - qualityScore(a.name);
-    if (diff !== 0) return diff;
-    return Number(a.rate) - Number(b.rate);
+    const d = qualityScore(b.name) - qualityScore(a.name);
+    return d !== 0 ? d : Number(a.rate) - Number(b.rate);
   };
   qualityTier.sort(sortFn);
   standardTier.sort(sortFn);
 
-  // Step 5: Per platform — fill up to MAX_PER_PLATFORM from quality tier,
-  //         then backfill with standard tier if quality tier is thin
-  const byPlatform: Record<string, { quality: FollowizService[]; standard: FollowizService[] }> = {};
+  // 5. Group each tier by (platform, serviceType)
+  type Bucket = FollowizService[];
+  const makeKey = (s: FollowizService) =>
+    `${detectPlatform(s.name, s.category)}|${detectServiceType(s.name)}`;
+
+  const qualityBuckets: Record<string, Bucket> = {};
+  const standardBuckets: Record<string, Bucket> = {};
 
   for (const s of qualityTier) {
-    const p = detectPlatform(s.name, s.category);
-    if (!byPlatform[p]) byPlatform[p] = { quality: [], standard: [] };
-    byPlatform[p].quality.push(s);
+    const k = makeKey(s);
+    (qualityBuckets[k] ||= []).push(s);
   }
   for (const s of standardTier) {
-    const p = detectPlatform(s.name, s.category);
-    if (!byPlatform[p]) byPlatform[p] = { quality: [], standard: [] };
-    byPlatform[p].standard.push(s);
+    const k = makeKey(s);
+    (standardBuckets[k] ||= []).push(s);
   }
 
+  // 6. For each platform, build the result respecting per-type & total limits
   const result: FollowizService[] = [];
-  const platformSummary: string[] = [];
+  const platformTotals: Record<string, number> = {};
+  const typeCounts: Record<string, Record<ServiceType, number>> = {};
 
-  for (const [platform, { quality, standard }] of Object.entries(byPlatform)) {
-    // Take all quality-tier services first (up to MAX)
-    const take = quality.slice(0, MAX_PER_PLATFORM);
-    // If quality tier is fewer than MAX, backfill from standard tier
-    if (take.length < MAX_PER_PLATFORM) {
-      const backfill = standard.slice(0, MAX_PER_PLATFORM - take.length);
-      take.push(...backfill);
-    }
-    result.push(...take);
-    platformSummary.push(`${platform}:${take.length}(q${quality.length})`);
+  const addService = (s: FollowizService) => {
+    const p    = detectPlatform(s.name, s.category);
+    const type = detectServiceType(s.name);
+    platformTotals[p] = (platformTotals[p] || 0) + 1;
+    if (!typeCounts[p]) typeCounts[p] = { Followers: 0, Likes: 0, Views: 0, Comments: 0, Other: 0 };
+    typeCounts[p][type] = (typeCounts[p][type] || 0) + 1;
+    result.push(s);
+  };
+
+  const canAdd = (s: FollowizService): boolean => {
+    const p    = detectPlatform(s.name, s.category);
+    const type = detectServiceType(s.name);
+    const tc   = typeCounts[p]?.[type] || 0;
+    const tot  = platformTotals[p] || 0;
+    return tc < TYPE_LIMITS[type] && tot < MAX_PER_PLATFORM;
+  };
+
+  // Pass 1: quality tier
+  for (const s of qualityTier) {
+    if (canAdd(s)) addService(s);
   }
 
-  console.log(`[SMM] Filter result: ${result.length} services | ${platformSummary.join(", ")}`);
+  // Pass 2: backfill with standard tier where type slots still open
+  for (const s of standardTier) {
+    if (canAdd(s)) addService(s);
+  }
+
+  // Log summary
+  const summary = Object.entries(platformTotals)
+    .sort((a, b) => b[1] - a[1])
+    .map(([p, c]) => `${p}:${c}`)
+    .join(", ");
+  console.log(`[SMM] ✅ Filter: ${result.length}/${raw.length} services kept | ${summary}`);
   return result;
 }
 
@@ -218,6 +253,7 @@ async function autoSyncServicesToDb(): Promise<number> {
       name:                svc.name,
       category:            svc.category,
       platform:            detectPlatform(svc.name, svc.category),
+      service_type:        detectServiceType(svc.name),
       price:               Math.ceil(Number(svc.rate) * 1.3 * 1300),
       min_order:           Number(svc.min),
       max_order:           Number(svc.max),
@@ -335,6 +371,7 @@ function followizToServices(raw: FollowizService[]) {
     name:                svc.name,
     category:            svc.category,
     platform:            detectPlatform(svc.name, svc.category),
+    service_type:        detectServiceType(svc.name),
     price:               Math.ceil(Number(svc.rate) * 1.3 * 1300),
     min_order:           Number(svc.min),
     max_order:           Number(svc.max),

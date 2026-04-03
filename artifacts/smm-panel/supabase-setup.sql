@@ -361,9 +361,10 @@ alter table public.payments
 -- ============================================================
 
 -- ── Services table: ensure all base columns exist ────────────────────────
-alter table public.services add column if not exists description text default '';
-alter table public.services add column if not exists min_order   integer not null default 100;
-alter table public.services add column if not exists max_order   integer not null default 100000;
+alter table public.services add column if not exists description  text default '';
+alter table public.services add column if not exists min_order    integer not null default 100;
+alter table public.services add column if not exists max_order    integer not null default 100000;
+alter table public.services add column if not exists service_type text;
 
 -- ── Services table: add provider + platform columns ──────────────────────
 alter table public.services alter column platform_id drop not null;

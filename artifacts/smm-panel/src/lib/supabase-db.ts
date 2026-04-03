@@ -7,6 +7,8 @@ export type Platform = {
   color: string | null;
 };
 
+export type ServiceType = "Followers" | "Likes" | "Views" | "Comments" | "Other";
+
 export type Service = {
   id: number;
   platform_id: number | null;
@@ -14,6 +16,7 @@ export type Service = {
   description: string | null;
   category: string | null;
   platform: string | null;
+  service_type: ServiceType | null;
   price: number;
   min_order: number;
   max_order: number;
