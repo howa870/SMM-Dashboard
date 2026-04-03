@@ -9,6 +9,7 @@ import usersRouter from "./users";
 import dashboardRouter from "./dashboard";
 import adminRouter from "./admin";
 import telegramRouter from "./telegram";
+import smmRouter, { startSmmPoller } from "./smm";
 import path from "path";
 import express from "express";
 
@@ -24,6 +25,10 @@ router.use("/users", usersRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/admin", adminRouter);
 router.use("/telegram", telegramRouter);
+router.use("/smm", smmRouter);
+
+// Start Followiz auto-status polling (every 30s)
+startSmmPoller();
 
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 router.use("/uploads", express.static(UPLOADS_DIR));

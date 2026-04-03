@@ -22,12 +22,14 @@ export type Service = {
 export type SupabaseOrder = {
   id: number;
   user_id: string;
-  service_id: number;
+  service_id: number | null;
   link: string;
   quantity: number;
   total_price: number;
   status: string;
   created_at: string;
+  provider_order_id?: string | null;
+  provider_service_id?: string | null;
   services?: { name: string };
 };
 

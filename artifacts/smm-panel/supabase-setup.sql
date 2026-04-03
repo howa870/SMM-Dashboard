@@ -355,4 +355,40 @@ alter table public.payments drop constraint if exists payments_method_check;
 alter table public.payments
   add constraint payments_method_check
   check (method in ('zaincash', 'asiacell', 'qicard', 'manual'));
+-- ============================================================
+-- FOLLOWIZ / SMM PROVIDER INTEGRATION MIGRATIONS
+-- Run these in Supabase SQL Editor
+-- ============================================================
+
+-- Make service_id nullable (provider orders don't have a local service)
+alter table public.orders alter column service_id drop not null;
+
+-- Add provider columns to orders table
+alter table public.orders add column if not exists provider_order_id   text;
+alter table public.orders add column if not exists provider_service_id text;
+
+-- Index for faster pending-order lookups (used by auto-status polling)
+create index if not exists orders_status_provider_idx
+  on public.orders (status, provider_order_id)
+  where status in ('pending', 'processing') and provider_order_id is not null;
+
+-- ============================================================
+-- DECREMENT BALANCE FUNCTION
+-- Used by backend when placing provider orders
+-- ============================================================
+create or replace function public.decrement_balance(uid uuid, amount numeric)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  update public.profiles
+  set balance = balance - amount
+  where id = uid and balance >= amount;
+  if not found then
+    raise exception 'رصيد غير كافٍ أو المستخدم غير موجود';
+  end if;
+end;
+$$;
+
 select 'Setup complete! Tables created, RLS configured, data seeded.' as result;
