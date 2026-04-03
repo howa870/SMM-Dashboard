@@ -16,7 +16,7 @@ export function Register() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { mutate, isPending } = useRegister();
-  const { user } = useAuth();
+  const { user, login } = useAuth();
 
   if (user) {
     setLocation("/");
@@ -26,11 +26,13 @@ export function Register() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     mutate({ data: { name, email, password } }, {
-      onSuccess: () => {
-        toast({
-          title: "تم إنشاء الحساب بنجاح",
-        });
-        window.location.href = "/";
+      onSuccess: (data) => {
+        const d = data as Record<string, unknown>;
+        const token = d.token as string | undefined;
+        const userData = d.user as Parameters<typeof login>[1] | undefined;
+        if (token && userData) login(token, userData);
+        toast({ title: "تم إنشاء الحساب بنجاح" });
+        setLocation("/");
       },
       onError: (error) => {
         toast({

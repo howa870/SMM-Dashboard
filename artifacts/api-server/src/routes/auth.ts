@@ -23,10 +23,11 @@ router.post("/register", async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const [user] = await db.insert(usersTable).values({ email, password: hashed, name }).returning();
     const token = createSession(user.id, user.role);
-    res.cookie("session", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: "lax" });
+    res.cookie("session", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: "lax", path: "/" });
     res.status(201).json({
       user: { id: user.id, email: user.email, name: user.name, balance: parseFloat(user.balance), role: user.role, createdAt: user.createdAt },
-      message: "تم التسجيل بنجاح"
+      message: "تم التسجيل بنجاح",
+      token,
     });
   } catch (err) {
     req.log.error(err);
@@ -53,10 +54,11 @@ router.post("/login", async (req, res) => {
       return;
     }
     const token = createSession(user.id, user.role);
-    res.cookie("session", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: "lax" });
+    res.cookie("session", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: "lax", path: "/" });
     res.json({
       user: { id: user.id, email: user.email, name: user.name, balance: parseFloat(user.balance), role: user.role, createdAt: user.createdAt },
-      message: "تم تسجيل الدخول بنجاح"
+      message: "تم تسجيل الدخول بنجاح",
+      token,
     });
   } catch (err) {
     req.log.error(err);

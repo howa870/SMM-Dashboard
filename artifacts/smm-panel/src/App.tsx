@@ -1,4 +1,5 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Router as WouterRouter, useLocation } from "wouter";
+import { useHashLocation } from "wouter/use-hash-location";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,25 +20,26 @@ import { AdminUsers } from "@/pages/admin/users";
 
 const queryClient = new QueryClient();
 
+const ROUTES: Record<string, React.ComponentType> = {
+  "/": Dashboard,
+  "/login": Login,
+  "/register": Register,
+  "/services": Services,
+  "/order": NewOrder,
+  "/orders": Orders,
+  "/wallet": Wallet,
+  "/admin": AdminDashboard,
+  "/admin/payments": AdminPayments,
+  "/admin/orders": AdminOrders,
+  "/admin/users": AdminUsers,
+};
+
 function Router() {
-  return (
-    <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/login" component={Login} />
-      <Route path="/register" component={Register} />
-      <Route path="/services" component={Services} />
-      <Route path="/order" component={NewOrder} />
-      <Route path="/orders" component={Orders} />
-      <Route path="/wallet" component={Wallet} />
-      
-      <Route path="/admin" component={AdminDashboard} />
-      <Route path="/admin/payments" component={AdminPayments} />
-      <Route path="/admin/orders" component={AdminOrders} />
-      <Route path="/admin/users" component={AdminUsers} />
-      
-      <Route component={NotFound} />
-    </Switch>
-  );
+  const [location] = useLocation();
+  const path = location.split("?")[0];
+  const Component = ROUTES[path];
+  if (Component) return <Component />;
+  return <NotFound />;
 }
 
 function App() {
@@ -45,7 +47,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <WouterRouter hook={useHashLocation}>
             <Router />
           </WouterRouter>
           <Toaster />
