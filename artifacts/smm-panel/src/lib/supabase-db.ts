@@ -13,6 +13,7 @@ export type Service = {
   name: string;
   description: string | null;
   category: string | null;
+  platform: string | null;
   price: number;
   min_order: number;
   max_order: number;

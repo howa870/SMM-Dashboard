@@ -66,6 +66,36 @@ async function fetchFollowizServices(): Promise<FollowizService[]> {
   return servicesCache;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// PLATFORM DETECTION — auto-classify Followiz service by name/category
+// ══════════════════════════════════════════════════════════════════════════════
+const PLATFORM_RULES: Array<{ keywords: string[]; platform: string }> = [
+  { keywords: ["instagram"],           platform: "Instagram"   },
+  { keywords: ["tiktok", "tik tok"],   platform: "TikTok"      },
+  { keywords: ["telegram"],            platform: "Telegram"    },
+  { keywords: ["youtube", "yt "],      platform: "YouTube"     },
+  { keywords: ["facebook", "fb "],     platform: "Facebook"    },
+  { keywords: ["twitter", " x "],      platform: "Twitter"     },
+  { keywords: ["snapchat"],            platform: "Snapchat"    },
+  { keywords: ["twitch"],              platform: "Twitch"      },
+  { keywords: ["spotify"],             platform: "Spotify"     },
+  { keywords: ["soundcloud"],          platform: "SoundCloud"  },
+  { keywords: ["linkedin"],            platform: "LinkedIn"    },
+  { keywords: ["pinterest"],           platform: "Pinterest"   },
+  { keywords: ["discord"],             platform: "Discord"     },
+  { keywords: ["threads"],             platform: "Threads"     },
+];
+
+function detectPlatform(name: string, category: string): string {
+  const haystack = (name + " " + category).toLowerCase();
+  for (const rule of PLATFORM_RULES) {
+    if (rule.keywords.some(kw => haystack.includes(kw))) {
+      return rule.platform;
+    }
+  }
+  return "Other";
+}
+
 // ─── AUTH HELPER ──────────────────────────────────────────────────────────────
 async function verifyToken(authHeader?: string): Promise<string | null> {
   if (!authHeader?.startsWith("Bearer ")) return null;
@@ -126,12 +156,13 @@ router.post("/sync-services", async (req, res) => {
     const followizServices = await fetchFollowizServices();
     console.log(`[SMM] sync-services: got ${followizServices.length} services from Followiz`);
 
-    // 2. Build upsert payload
+    // 2. Build upsert payload — detect platform from name/category
     const rows = followizServices.map(svc => ({
       provider:            "followiz",
       provider_service_id: String(svc.service),
       name:                svc.name,
       category:            svc.category,
+      platform:            detectPlatform(svc.name, svc.category),
       // price per 1000 in IQD: rate (USD/1000) × 1500 IQD/USD × 1.3 profit
       price:               Math.ceil(Number(svc.rate) * 1500 * 1.3),
       min_order:           Number(svc.min),
@@ -169,6 +200,47 @@ router.post("/sync-services", async (req, res) => {
   } catch (err) {
     console.error("[SMM] sync-services error:", err);
     res.status(500).json({ ok: false, error: "فشل المزامنة" });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GET /api/smm/platforms
+// Returns distinct platforms from Supabase services table with service counts
+// No auth required — public data
+// ══════════════════════════════════════════════════════════════════════════════
+router.get("/platforms", async (_req, res) => {
+  console.log("[SMM] GET /platforms");
+  try {
+    // Pull all active followiz services, group by platform
+    const { data, error } = await adminDb
+      .from("services")
+      .select("platform")
+      .eq("provider", "followiz")
+      .eq("status",   "active");
+
+    if (error) {
+      // Likely missing columns (SQL migration not run yet) — return empty gracefully
+      console.warn("[SMM] /platforms DB error (columns may not exist yet):", error.message);
+      res.json({ ok: true, data: [], total: 0, hint: "run SQL migrations first" });
+      return;
+    }
+
+    // Count per platform
+    const countMap: Record<string, number> = {};
+    for (const row of data || []) {
+      const p = row.platform || "Other";
+      countMap[p] = (countMap[p] || 0) + 1;
+    }
+
+    const platforms = Object.entries(countMap)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count); // most services first
+
+    console.log(`[SMM] /platforms: ${platforms.length} platforms found`);
+    res.json({ ok: true, data: platforms, total: platforms.length });
+  } catch (err) {
+    console.error("[SMM] /platforms error:", err);
+    res.status(500).json({ ok: false, error: "خطأ داخلي" });
   }
 });
 

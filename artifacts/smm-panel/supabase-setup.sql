@@ -360,9 +360,10 @@ alter table public.payments
 -- Run these in Supabase SQL Editor
 -- ============================================================
 
--- ── Services table: add provider columns ──────────────────────────────────
+-- ── Services table: add provider + platform columns ──────────────────────
 alter table public.services alter column platform_id drop not null;
 alter table public.services add column if not exists category            text;
+alter table public.services add column if not exists platform            text;
 alter table public.services add column if not exists provider            text default 'local';
 alter table public.services add column if not exists provider_service_id text;
 
