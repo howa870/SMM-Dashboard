@@ -360,6 +360,11 @@ alter table public.payments
 -- Run these in Supabase SQL Editor
 -- ============================================================
 
+-- ── Services table: ensure all base columns exist ────────────────────────
+alter table public.services add column if not exists description text default '';
+alter table public.services add column if not exists min_order   integer not null default 100;
+alter table public.services add column if not exists max_order   integer not null default 100000;
+
 -- ── Services table: add provider + platform columns ──────────────────────
 alter table public.services alter column platform_id drop not null;
 alter table public.services add column if not exists category            text;
