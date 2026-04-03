@@ -13,6 +13,7 @@ function useNotificationsQuery() {
     queryFn: () => getUserNotifications(supabaseUser!.id),
     enabled: !!supabaseUser,
     refetchInterval: 30_000,
+    retry: 1,
   });
 }
 
@@ -32,7 +33,10 @@ function useNotificationsSubscription() {
       }, () => {
         queryClient.invalidateQueries({ queryKey: [...NOTIF_KEY, supabaseUser.id] });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn("[Realtime] notifications channel error:", err);
+        else console.log("[Realtime] notifications:", status);
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [supabaseUser?.id, queryClient]);

@@ -36,6 +36,13 @@ create table if not exists public.profiles (
   created_at timestamptz default now()
 );
 
+-- MIGRATION: Add columns if table already exists without them
+alter table public.profiles add column if not exists name text;
+alter table public.profiles add column if not exists email text;
+alter table public.profiles add column if not exists balance numeric(10,2) not null default 0;
+alter table public.profiles add column if not exists role text not null default 'user';
+alter table public.profiles add column if not exists created_at timestamptz default now();
+
 -- 4. ORDERS TABLE
 create table if not exists public.orders (
   id serial primary key,

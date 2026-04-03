@@ -70,9 +70,11 @@ export function Wallet() {
       }, () => {
         queryClient.invalidateQueries({ queryKey: ["supabase", "profile", supabaseUser.id] });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn("[Realtime] balance channel error:", err);
+      });
     return () => { supabase.removeChannel(channel); };
-  }, [supabaseUser, queryClient]);
+  }, [supabaseUser?.id, queryClient]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -107,9 +109,13 @@ export function Wallet() {
     if (proofFile && supabaseUser) {
       setUploadingProof(true);
       try {
+        console.log("[Wallet] Uploading proof image...", proofFile.name, proofFile.size);
         proof_url = await uploadProofImage(proofFile, supabaseUser.id);
-      } catch {
-        toast({ variant: "destructive", title: "خطأ في رفع صورة الإثبات", description: "تأكد من إعداد Supabase Storage bucket 'payment_proofs'" });
+        console.log("[Wallet] Upload success →", proof_url);
+      } catch (uploadErr: unknown) {
+        const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+        console.error("[Wallet] Upload failed:", msg, uploadErr);
+        toast({ variant: "destructive", title: "خطأ في رفع صورة الإثبات", description: msg });
         setUploadingProof(false);
         return;
       }
@@ -117,6 +123,7 @@ export function Wallet() {
     }
 
     try {
+      console.log("[Wallet] Submitting payment:", { amount, method, transactionId });
       const payment = await createPayment({
         amount: Number(amount),
         method,
@@ -124,9 +131,10 @@ export function Wallet() {
         proof_url,
         notes: notes || undefined,
       });
+      console.log("[Wallet] Payment created ✅:", payment);
 
-      // Telegram notification
-      await notifyTelegramPayment({
+      // Telegram notification (non-blocking)
+      notifyTelegramPayment({
         id: payment.id,
         email: supabaseUser?.email || "مجهول",
         amount: Number(amount),
@@ -134,7 +142,7 @@ export function Wallet() {
         transaction_id: transactionId || null,
         proof_url: proof_url || null,
         notes: notes || null,
-      });
+      }).catch(e => console.warn("[Wallet] Telegram notify failed:", e));
 
       toast({ title: "✅ تم إرسال طلب الشحن بنجاح", description: "سيتم مراجعته من قِبل الإدارة قريباً." });
       setAmount("");
@@ -143,7 +151,9 @@ export function Wallet() {
       setProofFile(null);
       setProofPreview(null);
     } catch (err: unknown) {
-      toast({ variant: "destructive", title: "خطأ", description: err instanceof Error ? err.message : "حدث خطأ" });
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Wallet] Submit failed:", msg, err);
+      toast({ variant: "destructive", title: "فشل إرسال الطلب", description: msg });
     }
   };
 

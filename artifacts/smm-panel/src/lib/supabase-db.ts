@@ -61,15 +61,28 @@ export type Notification = {
   created_at: string;
 };
 
+// Convert any Supabase error into a proper JS Error with message
+function toError(err: unknown): Error {
+  if (err instanceof Error) return err;
+  if (err && typeof err === "object" && "message" in err) {
+    const e = new Error(String((err as { message: unknown }).message));
+    e.name = "SupabaseError";
+    return e;
+  }
+  return new Error(String(err));
+}
+
 // ─── PLATFORMS ────────────────────────────────────────────────
 
 export async function getPlatforms(): Promise<Platform[]> {
   const { data, error } = await supabase
     .from("platforms")
     .select("id, name, icon, color")
-    .eq("status", "active")
     .order("id");
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] getPlatforms:", error.message, error.code);
+    throw toError(error);
+  }
   return data as Platform[];
 }
 
@@ -82,7 +95,10 @@ export async function getServices(platformId?: number): Promise<Service[]> {
     .eq("status", "active");
   if (platformId) query = query.eq("platform_id", platformId);
   const { data, error } = await query.order("id");
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] getServices:", error.message, error.code);
+    throw toError(error);
+  }
   return data as Service[];
 }
 
@@ -94,7 +110,10 @@ export async function getProfile(userId: string): Promise<Profile | null> {
     .select("*")
     .eq("id", userId)
     .maybeSingle();
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] getProfile:", error.message, error.code);
+    throw toError(error);
+  }
   return data as Profile | null;
 }
 
@@ -102,7 +121,10 @@ export async function upsertProfile(profile: Partial<Profile> & { id: string }):
   const { error } = await supabase
     .from("profiles")
     .upsert(profile, { onConflict: "id" });
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] upsertProfile:", error.message, error.code);
+    throw toError(error);
+  }
 }
 
 export async function getAdminStats(): Promise<{
@@ -117,6 +139,11 @@ export async function getAdminStats(): Promise<{
     supabase.from("orders").select("id,total_price"),
     supabase.from("payments").select("id,amount,status"),
   ]);
+  // Log errors but don't throw — dashboard should show partial data
+  if (profiles.error) console.warn("[DB] getAdminStats profiles:", profiles.error.message);
+  if (orders.error) console.warn("[DB] getAdminStats orders:", orders.error.message);
+  if (payments.error) console.warn("[DB] getAdminStats payments:", payments.error.message);
+
   const totalUsers = profiles.count || 0;
   const totalOrders = orders.data?.length || 0;
   const totalRevenue = (payments.data || [])
@@ -133,8 +160,10 @@ export async function getDailyPaymentStats(): Promise<{ date: string; amount: nu
     .select("amount, created_at")
     .eq("status", "approved")
     .order("created_at", { ascending: true });
-  if (error) throw error;
-
+  if (error) {
+    console.warn("[DB] getDailyPaymentStats:", error.message);
+    return [];
+  }
   const byDay: Record<string, { amount: number; count: number }> = {};
   (data || []).forEach(p => {
     const day = p.created_at.slice(0, 10);
@@ -153,7 +182,10 @@ export async function getUserOrders(userId: string): Promise<SupabaseOrder[]> {
     .select("*, services(name)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] getUserOrders:", error.message, error.code);
+    throw toError(error);
+  }
   return data as SupabaseOrder[];
 }
 
@@ -169,7 +201,10 @@ export async function submitOrder(params: {
     .insert({ ...params, status: "pending" })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] submitOrder:", error.message, error.code);
+    throw toError(error);
+  }
   return data as SupabaseOrder;
 }
 
@@ -178,7 +213,10 @@ export async function deductBalance(userId: string, newBalance: number): Promise
     .from("profiles")
     .update({ balance: newBalance })
     .eq("id", userId);
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] deductBalance:", error.message);
+    throw toError(error);
+  }
 }
 
 // ─── PAYMENTS ─────────────────────────────────────────────────
@@ -189,7 +227,10 @@ export async function getUserPayments(userId: string): Promise<Payment[]> {
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] getUserPayments:", error.message, error.code);
+    throw toError(error);
+  }
   return data as Payment[];
 }
 
@@ -201,12 +242,17 @@ export async function createPayment(params: {
   proof_url?: string;
   notes?: string;
 }): Promise<Payment> {
+  console.log("[DB] createPayment →", params);
   const { data, error } = await supabase
     .from("payments")
     .insert({ ...params, status: "pending" })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] createPayment failed:", error.message, error.code, error.details);
+    throw toError(error);
+  }
+  console.log("[DB] createPayment ✅ →", data);
   return data as Payment;
 }
 
@@ -215,7 +261,10 @@ export async function getAllPayments(): Promise<Payment[]> {
     .from("payments")
     .select("*, profiles(name, email)")
     .order("created_at", { ascending: false });
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] getAllPayments:", error.message, error.code);
+    throw toError(error);
+  }
   return data as Payment[];
 }
 
@@ -225,7 +274,7 @@ export async function approvePayment(paymentId: number, userId: string, amount: 
     .select("balance")
     .eq("id", userId)
     .single();
-  if (profileError) throw profileError;
+  if (profileError) throw toError(profileError);
 
   const newBalance = Number(profileData.balance) + Number(amount);
 
@@ -233,13 +282,13 @@ export async function approvePayment(paymentId: number, userId: string, amount: 
     .from("profiles")
     .update({ balance: newBalance })
     .eq("id", userId);
-  if (balanceError) throw balanceError;
+  if (balanceError) throw toError(balanceError);
 
   const { error: paymentError } = await supabase
     .from("payments")
     .update({ status: "approved" })
     .eq("id", paymentId);
-  if (paymentError) throw paymentError;
+  if (paymentError) throw toError(paymentError);
 
   await createNotification({
     user_id: userId,
@@ -253,7 +302,7 @@ export async function rejectPayment(paymentId: number, userId: string): Promise<
     .from("payments")
     .update({ status: "rejected" })
     .eq("id", paymentId);
-  if (error) throw error;
+  if (error) throw toError(error);
 
   await createNotification({
     user_id: userId,
@@ -267,11 +316,16 @@ export async function rejectPayment(paymentId: number, userId: string): Promise<
 export async function uploadProofImage(file: File, userId: string): Promise<string> {
   const ext = file.name.split(".").pop() || "jpg";
   const fileName = `${userId}/${Date.now()}.${ext}`;
+  console.log("[DB] uploadProofImage →", fileName, "size:", file.size);
   const { data, error } = await supabase.storage
     .from("payment_proofs")
     .upload(fileName, file, { cacheControl: "3600", upsert: false });
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] uploadProofImage failed:", error.message);
+    throw new Error(`رفع الصورة فشل: ${error.message}`);
+  }
   const { data: urlData } = supabase.storage.from("payment_proofs").getPublicUrl(data.path);
+  console.log("[DB] uploadProofImage ✅ →", urlData.publicUrl);
   return urlData.publicUrl;
 }
 
@@ -285,7 +339,7 @@ export async function createNotification(params: {
   const { error } = await supabase
     .from("notifications")
     .insert({ ...params, is_read: false });
-  if (error) console.warn("Notification insert failed:", error.message);
+  if (error) console.warn("[DB] createNotification failed:", error.message);
 }
 
 export async function getUserNotifications(userId: string): Promise<Notification[]> {
@@ -295,7 +349,10 @@ export async function getUserNotifications(userId: string): Promise<Notification
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(20);
-  if (error) throw error;
+  if (error) {
+    console.error("[DB] getUserNotifications:", error.message, error.code);
+    throw toError(error);
+  }
   return data as Notification[];
 }
 
@@ -305,5 +362,5 @@ export async function markNotificationsRead(userId: string): Promise<void> {
     .update({ is_read: true })
     .eq("user_id", userId)
     .eq("is_read", false);
-  if (error) throw error;
+  if (error) throw toError(error);
 }

@@ -22,7 +22,9 @@ export function useProfile() {
         email: supabaseUser.email || "",
         balance: 0,
         role: "user",
-      }).then(() => queryClient.invalidateQueries({ queryKey: ["supabase", "profile"] }));
+      })
+        .then(() => queryClient.invalidateQueries({ queryKey: ["supabase", "profile"] }))
+        .catch((err) => console.warn("[useProfile] upsertProfile failed:", err?.message || err));
     }
   }, [supabaseUser, query.data]);
 

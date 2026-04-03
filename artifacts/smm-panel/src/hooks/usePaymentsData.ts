@@ -22,6 +22,7 @@ export function useUserPayments() {
     queryKey: [...PAYMENTS_KEY, supabaseUser?.id],
     queryFn: () => getUserPayments(supabaseUser!.id),
     enabled: !!supabaseUser,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -36,9 +37,12 @@ export function useUserPayments() {
       }, () => {
         queryClient.invalidateQueries({ queryKey: [...PAYMENTS_KEY, supabaseUser.id] });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn("[Realtime] payments channel error:", err);
+        else console.log("[Realtime] payments:", status);
+      });
     return () => { supabase.removeChannel(channel); };
-  }, [supabaseUser, queryClient]);
+  }, [supabaseUser?.id, queryClient]);
 
   return query;
 }
@@ -50,6 +54,7 @@ export function useAllPayments() {
     queryKey: ADMIN_PAYMENTS_KEY,
     queryFn: getAllPayments,
     refetchInterval: 30 * 1000,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -62,7 +67,10 @@ export function useAllPayments() {
       }, () => {
         queryClient.invalidateQueries({ queryKey: ADMIN_PAYMENTS_KEY });
       })
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn("[Realtime] admin-payments channel error:", err);
+        else console.log("[Realtime] admin-payments:", status);
+      });
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 

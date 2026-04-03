@@ -20,11 +20,16 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setSupabaseUser(s?.user ?? null);
-      setIsLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session: s } }) => {
+        setSession(s);
+        setSupabaseUser(s?.user ?? null);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error("[AuthContext] getSession failed:", err?.message || err);
+        setIsLoading(false);
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
