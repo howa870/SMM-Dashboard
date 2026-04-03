@@ -40,6 +40,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="p-8 max-w-7xl mx-auto w-full">
           {children}
         </div>
+        <footer className="border-t border-white/5 py-4 px-8 text-center text-xs text-gray-600">
+          © 2026 Boost Iraq — جميع الحقوق محفوظة
+        </footer>
       </main>
     </div>
   );

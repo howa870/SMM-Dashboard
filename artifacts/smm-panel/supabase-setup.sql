@@ -1,5 +1,5 @@
 -- ============================================================
--- Perfect Follow - Supabase Database Setup
+-- Boost Iraq - Supabase Database Setup
 -- Run this in: Supabase Dashboard → SQL Editor → New Query
 -- ============================================================
 

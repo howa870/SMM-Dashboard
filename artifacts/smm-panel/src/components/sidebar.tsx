@@ -47,9 +47,12 @@ export function Sidebar() {
   return (
     <div className="w-64 h-full flex flex-col bg-white/5 backdrop-blur-xl border-l border-white/10">
       <div className="p-6 overflow-y-auto flex-1">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent mb-8">
-          Perfect Follow
-        </h1>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold bg-gradient-to-l from-purple-400 to-blue-400 bg-clip-text text-transparent flex items-center gap-1">
+            🚀 Boost Iraq
+          </h1>
+          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">أفضل خدمات السوشيال ميديا في العراق والخليج</p>
+        </div>
 
         <nav className="space-y-1">
           {navItems.map((item) => {
