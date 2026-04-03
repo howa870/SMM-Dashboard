@@ -134,6 +134,10 @@ create policy "payments_update_admin" on public.payments for update using (
   exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
 );
 
+-- Allow service_role (Telegram webhook backend) to update payments and profiles
+-- Note: service_role key bypasses RLS automatically — no extra policy needed.
+-- The above policy covers admin panel users. The backend uses service_role key directly.
+
 -- Notifications: users can see/update their own
 drop policy if exists "notifications_select_own" on public.notifications;
 create policy "notifications_select_own" on public.notifications for select using (auth.uid() = user_id);
