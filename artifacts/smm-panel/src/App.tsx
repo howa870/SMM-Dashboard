@@ -22,7 +22,6 @@ import { AdminOrders } from "@/pages/admin/orders";
 import { AdminUsers } from "@/pages/admin/users";
 import { AdminServices } from "@/pages/admin/services";
 import { AdminSettings } from "@/pages/admin/settings";
-import { Referral } from "@/pages/referral";
 
 const queryClient = new QueryClient();
 
@@ -41,7 +40,6 @@ const ROUTES: Record<string, React.ComponentType> = {
   "/admin/users": AdminUsers,
   "/admin/services": AdminServices,
   "/admin/settings": AdminSettings,
-  "/referral": Referral,
 };
 
 function Router() {

@@ -5,7 +5,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { 
   LayoutDashboard, List, ShoppingCart, History, 
   Wallet, LogOut, ShieldAlert, Users, CreditCard,
-  Activity, ArrowLeftRight, Settings, Gift
+  Activity, ArrowLeftRight, Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -29,7 +29,6 @@ export function Sidebar() {
     { href: "/orders", label: "طلباتي", icon: History },
     { href: "/wallet", label: "المحفظة", icon: Wallet },
     { href: "/transactions", label: "سجل العمليات", icon: ArrowLeftRight },
-    { href: "/referral", label: "الإحالة والمكافآت", icon: Gift },
   ];
 
   const adminItems = [

@@ -5,50 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Gift } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useSupabaseAuth } from "@/context/AuthContext";
 
 export function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [referralCode, setReferralCode] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { supabaseUser, register } = useSupabaseAuth();
-
-  // Pre-fill referral code from URL param (?ref=CODE)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const hashSearch = window.location.hash.split("?")[1];
-    const hashParams = hashSearch ? new URLSearchParams(hashSearch) : null;
-    const code = params.get("ref") || hashParams?.get("ref") || "";
-    if (code) setReferralCode(code.toUpperCase());
-  }, []);
 
   useEffect(() => {
     if (supabaseUser) setLocation("/");
   }, [supabaseUser, setLocation]);
 
   if (supabaseUser) return null;
-
-  const applyReferralCode = async (code: string, token: string) => {
-    if (!code.trim()) return;
-    try {
-      const res = await fetch("/api/referrals/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ code: code.trim().toUpperCase() }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        console.warn("[Register] Referral apply failed:", j.error);
-      }
-    } catch (e) {
-      console.warn("[Register] Referral apply error:", e);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,9 +30,6 @@ export function Register() {
       await register(name, email, password);
       const { data } = await import("@/lib/supabase").then(m => m.supabase.auth.getSession());
       if (data.session) {
-        if (referralCode.trim()) {
-          await applyReferralCode(referralCode, data.session.access_token);
-        }
         toast({ title: "تم إنشاء الحساب بنجاح" });
         setLocation("/");
       } else {
@@ -128,25 +98,6 @@ export function Register() {
                 className="bg-white/5 border-white/10 text-white focus-visible:ring-purple-500 rounded-xl h-12"
                 dir="ltr"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="referral" className="text-gray-300 flex items-center gap-2">
-                <Gift className="w-4 h-4 text-purple-400" />
-                رمز الإحالة
-                <span className="text-gray-500 text-xs">(اختياري)</span>
-              </Label>
-              <Input
-                id="referral"
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                className="bg-white/5 border-white/10 text-white focus-visible:ring-purple-500 rounded-xl h-12 font-mono tracking-widest"
-                dir="ltr"
-                placeholder="أدخل رمز الإحالة إن وُجد..."
-                maxLength={12}
-              />
-              {referralCode && (
-                <p className="text-xs text-green-400">✅ سيتم تطبيق رمز الإحالة تلقائياً عند التسجيل</p>
-              )}
             </div>
             <Button
               type="submit"
