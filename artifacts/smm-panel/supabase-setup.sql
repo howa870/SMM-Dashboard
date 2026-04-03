@@ -297,4 +297,62 @@ create policy "public_view_proof" on storage.objects for select
 --   ADMIN_URL = https://your-app-url.replit.app/#/admin/payments
 
 -- Done!
+
+-- ============================================================
+-- PAYMENT SETTINGS TABLE
+-- Stores dynamic payment numbers (editable from Admin or Telegram)
+-- ============================================================
+create table if not exists public.payment_settings (
+  key text primary key,
+  value text not null default '',
+  label text not null default '',
+  updated_at timestamptz default now()
+);
+
+-- Allow anyone authenticated to read settings (needed in wallet page)
+alter table public.payment_settings enable row level security;
+
+drop policy if exists "payment_settings_select" on public.payment_settings;
+create policy "payment_settings_select" on public.payment_settings for select using (true);
+
+drop policy if exists "payment_settings_update_admin" on public.payment_settings;
+create policy "payment_settings_update_admin" on public.payment_settings for update using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
+
+drop policy if exists "payment_settings_insert_admin" on public.payment_settings;
+create policy "payment_settings_insert_admin" on public.payment_settings for insert with check (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin')
+);
+
+-- Seed default payment numbers (update to your real numbers)
+insert into public.payment_settings (key, value, label) values
+  ('zain',      '07881457896',  'زين كاش'),
+  ('asiacell',  '07769079777',  'آسياسيل'),
+  ('qicard',    '1234021689',   'QiCard')
+on conflict (key) do nothing;
+
+-- ============================================================
+-- INCREMENT BALANCE FUNCTION
+-- Called from backend/Telegram to safely add balance
+-- ============================================================
+create or replace function public.increment_balance(uid uuid, amount numeric)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  update public.profiles
+  set balance = balance + amount
+  where id = uid;
+end;
+$$;
+
+-- ============================================================
+-- UPDATE PAYMENTS TABLE: add asiacell to method constraint
+-- ============================================================
+alter table public.payments drop constraint if exists payments_method_check;
+alter table public.payments
+  add constraint payments_method_check
+  check (method in ('zaincash', 'asiacell', 'qicard', 'manual'));
 select 'Setup complete! Tables created, RLS configured, data seeded.' as result;

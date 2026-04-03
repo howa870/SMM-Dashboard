@@ -37,6 +37,7 @@ export function Sidebar() {
     { href: "/admin/payments", label: "المدفوعات", icon: CreditCard },
     { href: "/admin/services", label: "الخدمات", icon: Settings },
     { href: "/admin/users", label: "المستخدمين", icon: Users },
+    { href: "/admin/settings", label: "إعدادات الدفع", icon: ShieldAlert },
   ];
 
   const displayName = profile?.name || user?.name || "مستخدم";

@@ -43,13 +43,20 @@ export type Payment = {
   id: string;
   user_id: string;
   amount: number;
-  method: "zaincash" | "qicard" | "manual";
+  method: "zaincash" | "asiacell" | "qicard" | "manual";
   transaction_id: string | null;
   proof_url: string | null;
   notes: string | null;
   status: "pending" | "approved" | "rejected";
   created_at: string;
   profiles?: { name: string | null; email: string | null };
+};
+
+export type PaymentSettings = {
+  key: string;       // 'zain' | 'asiacell' | 'qicard'
+  value: string;     // phone/account number
+  label: string;     // display name
+  updated_at: string;
 };
 
 export type Notification = {
@@ -363,4 +370,39 @@ export async function markNotificationsRead(userId: string): Promise<void> {
     .eq("user_id", userId)
     .eq("is_read", false);
   if (error) throw toError(error);
+}
+
+// ─── PAYMENT SETTINGS ──────────────────────────────────────────
+
+export async function getPaymentSettings(): Promise<PaymentSettings[]> {
+  const { data, error } = await supabase
+    .from("payment_settings")
+    .select("*")
+    .order("key");
+  if (error) {
+    console.warn("[DB] getPaymentSettings:", error.message);
+    return [];
+  }
+  return data as PaymentSettings[];
+}
+
+export async function updatePaymentSetting(key: string, value: string): Promise<void> {
+  const { error } = await supabase
+    .from("payment_settings")
+    .update({ value, updated_at: new Date().toISOString() })
+    .eq("key", key);
+  if (error) {
+    console.error("[DB] updatePaymentSetting:", error.message);
+    throw toError(error);
+  }
+}
+
+export async function upsertPaymentSettings(settings: { key: string; value: string; label: string }[]): Promise<void> {
+  const { error } = await supabase
+    .from("payment_settings")
+    .upsert(settings.map(s => ({ ...s, updated_at: new Date().toISOString() })), { onConflict: "key" });
+  if (error) {
+    console.error("[DB] upsertPaymentSettings:", error.message);
+    throw toError(error);
+  }
 }

@@ -7,28 +7,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Wallet as WalletIcon, Receipt, Clock, CheckCircle2, XCircle, Info, Upload, Copy, Check, Sparkles, ImageIcon } from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPayments, useCreatePayment } from "@/hooks/usePaymentsData";
-import { uploadProofImage } from "@/lib/supabase-db";
+import { uploadProofImage, getPaymentSettings } from "@/lib/supabase-db";
 import { notifyTelegramPayment } from "@/lib/telegram";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Payment } from "@/lib/supabase-db";
 
-const METHOD_INFO: Record<Payment["method"], { label: string; icon: string; number: string; description: string }> = {
-  zaincash: { label: "زين كاش", icon: "💳", number: "07801234567", description: "حوّل المبلغ إلى رقم زين كاش أدناه ثم أدخل رقم العملية." },
-  qicard: { label: "QiCard", icon: "💰", number: "1234 5678 9012 3456", description: "حوّل المبلغ إلى رقم QiCard أدناه ثم أدخل رقم العملية." },
-  manual: { label: "حوالة يدوية", icon: "🏦", number: "تواصل مع الدعم", description: "تواصل مع فريق الدعم لإتمام عملية التحويل اليدوي." },
+// Static method UI metadata (icons/descriptions) — numbers come from DB
+const METHOD_META: Record<string, { label: string; icon: string; description: string }> = {
+  zaincash: { label: "زين كاش",   icon: "💳", description: "حوّل المبلغ إلى رقم زين كاش أدناه ثم أدخل رقم العملية." },
+  asiacell: { label: "آسياسيل",  icon: "📱", description: "حوّل المبلغ إلى رقم آسياسيل أدناه ثم أدخل رقم العملية." },
+  qicard:   { label: "QiCard",   icon: "💰", description: "حوّل المبلغ إلى رقم QiCard أدناه ثم أدخل رقم العملية." },
+  manual:   { label: "يدوي",     icon: "🏦", description: "تواصل مع فريق الدعم لإتمام عملية التحويل اليدوي." },
 };
 
 const STATUS_CONFIG: Record<Payment["status"], { label: string; color: string; icon: React.ReactNode }> = {
-  pending: { label: "قيد المراجعة", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/50", icon: <Clock className="w-4 h-4" /> },
-  approved: { label: "مقبول ✅", color: "bg-green-500/20 text-green-400 border-green-500/50", icon: <CheckCircle2 className="w-4 h-4" /> },
-  rejected: { label: "مرفوض ❌", color: "bg-red-500/20 text-red-400 border-red-500/50", icon: <XCircle className="w-4 h-4" /> },
+  pending:  { label: "قيد المراجعة", color: "bg-yellow-500/20 text-yellow-400 border-yellow-500/50", icon: <Clock className="w-4 h-4" /> },
+  approved: { label: "مقبول ✅",     color: "bg-green-500/20 text-green-400 border-green-500/50",  icon: <CheckCircle2 className="w-4 h-4" /> },
+  rejected: { label: "مرفوض ❌",     color: "bg-red-500/20 text-red-400 border-red-500/50",        icon: <XCircle className="w-4 h-4" /> },
 };
+
+// Ordered method keys shown in UI
+const METHOD_ORDER: Payment["method"][] = ["zaincash", "asiacell", "qicard", "manual"];
 
 function generateTxId(): string {
   const prefix = "PF";
@@ -38,11 +44,32 @@ function generateTxId(): string {
   return id;
 }
 
+// Map DB key → method key
+const DB_KEY_TO_METHOD: Record<string, Payment["method"]> = {
+  zain: "zaincash",
+  asiacell: "asiacell",
+  qicard: "qicard",
+};
+
 export function Wallet() {
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: payments, isLoading: paymentsLoading } = useUserPayments();
   const { supabaseUser } = useSupabaseAuth();
   const queryClient = useQueryClient();
+
+  // Fetch dynamic payment numbers from DB
+  const { data: paymentSettings } = useQuery({
+    queryKey: ["supabase", "payment_settings"],
+    queryFn: getPaymentSettings,
+    staleTime: 60 * 1000,
+  });
+
+  // Build dynamic number map from DB
+  const paymentNumbers: Record<string, string> = { manual: "تواصل مع الدعم" };
+  (paymentSettings || []).forEach(s => {
+    const method = DB_KEY_TO_METHOD[s.key];
+    if (method) paymentNumbers[method] = s.value;
+  });
 
   const [amount, setAmount] = useState<number | "">("");
   const [method, setMethod] = useState<Payment["method"]>("zaincash");
@@ -114,7 +141,7 @@ export function Wallet() {
         console.log("[Wallet] Upload success →", proof_url);
       } catch (uploadErr: unknown) {
         const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
-        console.error("[Wallet] Upload failed:", msg, uploadErr);
+        console.error("[Wallet] Upload failed:", msg);
         toast({ variant: "destructive", title: "خطأ في رفع صورة الإثبات", description: msg });
         setUploadingProof(false);
         return;
@@ -152,13 +179,14 @@ export function Wallet() {
       setProofPreview(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[Wallet] Submit failed:", msg, err);
+      console.error("[Wallet] Submit failed:", msg);
       toast({ variant: "destructive", title: "فشل إرسال الطلب", description: msg });
     }
   };
 
   const balance = Number(profile?.balance || 0);
-  const selectedMethodInfo = METHOD_INFO[method];
+  const selectedMeta = METHOD_META[method] || METHOD_META.manual;
+  const selectedNumber = paymentNumbers[method] || "—";
 
   return (
     <Layout>
@@ -177,14 +205,14 @@ export function Wallet() {
             <Card className="backdrop-blur-xl bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30 overflow-hidden relative">
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-500/10 via-transparent to-transparent pointer-events-none" />
               <CardContent className="p-6 text-center relative">
-                <div className="w-16 h-16 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center mb-4 animate-pulse-slow">
+                <div className="w-16 h-16 mx-auto bg-purple-500/20 rounded-full flex items-center justify-center mb-4">
                   <WalletIcon className="w-8 h-8 text-purple-400" />
                 </div>
                 <p className="text-gray-400 mb-2 text-sm">الرصيد الحالي</p>
                 {profileLoading ? (
                   <div className="h-10 w-40 bg-white/10 animate-pulse rounded-lg mx-auto" />
                 ) : (
-                  <h2 className="text-4xl font-bold text-white font-mono transition-all duration-300">
+                  <h2 className="text-4xl font-bold text-white font-mono">
                     IQD {balance.toLocaleString()}
                   </h2>
                 )}
@@ -222,34 +250,37 @@ export function Wallet() {
                   {/* Method */}
                   <div className="space-y-2">
                     <Label className="text-gray-300">طريقة الدفع</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(Object.entries(METHOD_INFO) as [Payment["method"], typeof METHOD_INFO[Payment["method"]]][]).map(([key, info]) => (
-                        <button key={key} type="button" onClick={() => setMethod(key)}
-                          className={`rounded-xl p-3 text-center border transition-all ${method === key ? "bg-purple-600/30 border-purple-500/50 text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"}`}>
-                          <div className="text-2xl mb-1">{info.icon}</div>
-                          <div className="text-xs font-medium">{info.label}</div>
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-2 gap-2">
+                      {METHOD_ORDER.map(key => {
+                        const meta = METHOD_META[key];
+                        return (
+                          <button key={key} type="button" onClick={() => setMethod(key)}
+                            className={`rounded-xl p-3 text-center border transition-all ${method === key ? "bg-purple-600/30 border-purple-500/50 text-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"}`}>
+                            <div className="text-xl mb-1">{meta.icon}</div>
+                            <div className="text-xs font-medium">{meta.label}</div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Method Info */}
+                  {/* Method Info with dynamic number */}
                   <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-4 space-y-3">
                     <p className="text-blue-300 text-sm flex items-start gap-2">
                       <Info className="w-4 h-4 mt-0.5 shrink-0" />
-                      {selectedMethodInfo.description}
+                      {selectedMeta.description}
                     </p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 font-mono text-white text-sm bg-white/10 rounded-lg px-3 py-2 text-center" dir="ltr">
-                        {selectedMethodInfo.number}
-                      </code>
-                      {method !== "manual" && (
-                        <button type="button" onClick={() => handleCopyNumber(selectedMethodInfo.number)}
+                    {method !== "manual" && (
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 font-mono text-white text-sm bg-white/10 rounded-lg px-3 py-2 text-center" dir="ltr">
+                          {selectedNumber || <span className="text-gray-500 animate-pulse">جاري التحميل...</span>}
+                        </code>
+                        <button type="button" onClick={() => handleCopyNumber(selectedNumber)}
                           className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 transition-all">
                           {copiedNumber ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* TXID */}
@@ -333,19 +364,19 @@ export function Wallet() {
                   <div className="space-y-3">
                     {payments.map(pay => {
                       const cfg = STATUS_CONFIG[pay.status];
-                      const mInfo = METHOD_INFO[pay.method];
+                      const mMeta = METHOD_META[pay.method] || METHOD_META.manual;
                       return (
                         <div key={pay.id} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors gap-4">
                           <div className="flex items-center gap-4 flex-1 min-w-0">
                             <div className={`w-11 h-11 rounded-full shrink-0 flex items-center justify-center text-xl ${
                               pay.status === "approved" ? "bg-green-500/20" :
                               pay.status === "rejected" ? "bg-red-500/20" : "bg-yellow-500/20"}`}>
-                              {mInfo.icon}
+                              {mMeta.icon}
                             </div>
                             <div className="min-w-0">
                               <p className="font-bold text-white font-mono">IQD {Number(pay.amount).toLocaleString()}</p>
                               <p className="text-xs text-gray-400">
-                                {mInfo.label}
+                                {mMeta.label}
                                 {pay.transaction_id && <span className="font-mono mr-2 text-gray-500">• {pay.transaction_id}</span>}
                               </p>
                               <p className="text-xs text-gray-600 font-mono" dir="ltr">{format(new Date(pay.created_at), "yyyy/MM/dd HH:mm")}</p>

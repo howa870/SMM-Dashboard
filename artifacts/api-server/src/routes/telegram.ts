@@ -317,14 +317,18 @@ async function approvePayment(paymentId: string, fromName: string): Promise<stri
     return "❌ لم يتم إيجاد حساب المستخدم";
   }
 
-  const newBalance = Number(profile.balance) + Number(payment.amount);
-
-  // Update balance
-  const { error: balErr } = await db
-    .from("profiles")
-    .update({ balance: newBalance })
-    .eq("id", payment.user_id);
-  if (balErr) { console.error("[TG] approvePayment: balance err:", balErr.message); return `❌ فشل تحديث الرصيد: ${balErr.message}`; }
+  // Use increment_balance RPC for atomic balance update
+  const { error: balErr } = await db.rpc("increment_balance", {
+    uid: payment.user_id,
+    amount: Number(payment.amount),
+  });
+  if (balErr) {
+    // Fallback: manual update if rpc not available
+    console.warn("[TG] rpc increment_balance failed, using fallback:", balErr.message);
+    const newBalance = Number(profile.balance) + Number(payment.amount);
+    const { error: fallbackErr } = await db.from("profiles").update({ balance: newBalance }).eq("id", payment.user_id);
+    if (fallbackErr) { return `❌ فشل تحديث الرصيد: ${fallbackErr.message}`; }
+  }
 
   // Update payment status
   const { error: payErr } = await db
@@ -379,6 +383,64 @@ async function rejectPayment(paymentId: string, fromName: string): Promise<strin
   return `❌ تم رفض الطلب\nبواسطة: ${fromName}`;
 }
 
+// ─── /setnumbers COMMAND ─────────────────────────────────────────────────────
+// Usage: /setnumbers [zain_number] [asiacell_number] [qicard_number]
+// Example: /setnumbers 07881457896 07769079777 1234021689
+async function handleSetNumbers(chatId: number | string, text: string) {
+  if (!db) { await sendMessage(chatId, "⚠️ قاعدة البيانات غير متاحة"); return; }
+
+  const parts = text.trim().split(/\s+/).slice(1); // remove /setnumbers
+
+  if (parts.length < 3) {
+    await sendMessage(chatId, [
+      "❌ صيغة خاطئة!\n",
+      "الصيغة الصحيحة:",
+      "<code>/setnumbers [رقم_زين] [رقم_آسياسيل] [رقم_qicard]</code>\n",
+      "مثال:",
+      "<code>/setnumbers 07881457896 07769079777 1234021689</code>",
+    ].join("\n"));
+    return;
+  }
+
+  const [zain, asiacell, qicard] = parts;
+
+  const updates = [
+    { key: "zain",     value: zain,     label: "زين كاش"  },
+    { key: "asiacell", value: asiacell, label: "آسياسيل" },
+    { key: "qicard",   value: qicard,   label: "QiCard"   },
+  ];
+
+  const results: string[] = [];
+  let hasError = false;
+
+  for (const u of updates) {
+    const { error } = await db
+      .from("payment_settings")
+      .upsert({ key: u.key, value: u.value, label: u.label, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) {
+      console.error(`[TG] setNumbers ${u.key} error:`, error.message);
+      results.push(`❌ ${u.label}: فشل — ${error.message}`);
+      hasError = true;
+    } else {
+      results.push(`✅ ${u.label}: <code>${u.value}</code>`);
+    }
+  }
+
+  const summary = hasError
+    ? "⚠️ <b>تم التحديث مع بعض الأخطاء</b>"
+    : "✅ <b>تم تحديث جميع أرقام الدفع بنجاح!</b>";
+
+  await sendMessage(chatId, [
+    summary,
+    "",
+    ...results,
+    "",
+    "🔄 ستظهر الأرقام الجديدة للمستخدمين فوراً.",
+  ].join("\n"), { reply_markup: MAIN_MENU });
+
+  console.log(`[TG] /setnumbers → zain=${zain}, asiacell=${asiacell}, qicard=${qicard}`);
+}
+
 // ─── MESSAGE HANDLER ─────────────────────────────────────────────────────────
 async function handleMessage(chatId: number, fromId: number, text: string) {
   const state = adminState.get(fromId);
@@ -400,6 +462,12 @@ async function handleMessage(chatId: number, fromId: number, text: string) {
   // /stats
   if (text === "/stats") {
     await sendStats(chatId);
+    return;
+  }
+
+  // /setnumbers zain asiacell qicard
+  if (text.startsWith("/setnumbers")) {
+    await handleSetNumbers(chatId, text);
     return;
   }
 

@@ -13,9 +13,10 @@ import { notifyTelegramApproved, notifyTelegramRejected } from "@/lib/telegram";
 import type { Payment } from "@/lib/supabase-db";
 
 const METHOD_INFO: Record<Payment["method"], { label: string; icon: string }> = {
-  zaincash: { label: "زين كاش", icon: "💳" },
-  qicard: { label: "QiCard", icon: "💰" },
-  manual: { label: "حوالة يدوية", icon: "🏦" },
+  zaincash: { label: "زين كاش",  icon: "💳" },
+  asiacell: { label: "آسياسيل", icon: "📱" },
+  qicard:   { label: "QiCard",  icon: "💰" },
+  manual:   { label: "حوالة يدوية", icon: "🏦" },
 };
 
 const STATUS_CONFIG: Record<Payment["status"], { label: string; color: string; icon: React.ReactNode }> = {
@@ -35,7 +36,7 @@ export function AdminPayments() {
   const { data: profile, isLoading: profileLoading } = useProfile();
   const [, setLocation] = useLocation();
   const [filter, setFilter] = useState<Payment["status"] | "all">("pending");
-  const [actionId, setActionId] = useState<number | null>(null);
+  const [actionId, setActionId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   useEffect(() => {
