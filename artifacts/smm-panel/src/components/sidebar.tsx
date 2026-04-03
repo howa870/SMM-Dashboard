@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
-import { useLogout } from "@workspace/api-client-react";
+import { useSupabaseAuth } from "@/context/AuthContext";
 import { 
   LayoutDashboard, 
   List, 
@@ -17,16 +17,12 @@ import { Button } from "@/components/ui/button";
 
 export function Sidebar() {
   const [location, setLocation] = useLocation();
-  const { user, logout: localLogout } = useAuth();
-  const logoutMutation = useLogout();
+  const { user } = useAuth();
+  const { logout } = useSupabaseAuth();
 
-  const handleLogout = () => {
-    logoutMutation.mutate(undefined, {
-      onSuccess: () => {
-        localLogout();
-        setLocation("/login");
-      }
-    });
+  const handleLogout = async () => {
+    await logout();
+    setLocation("/login");
   };
 
   const navItems = [

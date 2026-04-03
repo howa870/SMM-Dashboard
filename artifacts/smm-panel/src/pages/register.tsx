@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useRegister } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,48 +6,55 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/lib/auth-context";
+import { useSupabaseAuth } from "@/context/AuthContext";
 
 export function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isPending, setIsPending] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { mutate, isPending } = useRegister();
-  const { user, login } = useAuth();
+  const { supabaseUser, register } = useSupabaseAuth();
 
-  if (user) {
+  if (supabaseUser) {
     setLocation("/");
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    mutate({ data: { name, email, password } }, {
-      onSuccess: (data) => {
-        const d = data as Record<string, unknown>;
-        const token = d.token as string | undefined;
-        const userData = d.user as Parameters<typeof login>[1] | undefined;
-        if (token && userData) login(token, userData);
+    setIsPending(true);
+    try {
+      await register(name, email, password);
+      const { data } = await import("@/lib/supabase").then(m => m.supabase.auth.getSession());
+      if (data.session) {
         toast({ title: "تم إنشاء الحساب بنجاح" });
         setLocation("/");
-      },
-      onError: (error) => {
+      } else {
         toast({
-          variant: "destructive",
-          title: "خطأ في إنشاء الحساب",
-          description: error.error || "يرجى المحاولة مرة أخرى",
+          title: "تحقق من بريدك الإلكتروني",
+          description: "تم إرسال رابط التأكيد إلى بريدك الإلكتروني. يرجى تأكيد الحساب ثم تسجيل الدخول.",
         });
+        setLocation("/login");
       }
-    });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "يرجى المحاولة مرة أخرى";
+      toast({
+        variant: "destructive",
+        title: "خطأ في إنشاء الحساب",
+        description: msg,
+      });
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4 relative overflow-hidden">
       <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none" />
-      
+
       <Card className="w-full max-w-md backdrop-blur-xl bg-white/5 border-white/10 z-10">
         <CardHeader className="space-y-2 text-center">
           <div className="mx-auto w-12 h-12 bg-gradient-to-tr from-purple-600 to-blue-600 rounded-xl mb-2 flex items-center justify-center shadow-lg shadow-purple-500/20" />

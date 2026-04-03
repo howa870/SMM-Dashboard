@@ -1,24 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { useGetMe, setAuthTokenGetter } from "@workspace/api-client-react";
+import { useGetMe } from "@workspace/api-client-react";
 import type { User } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useQueryClient } from "@tanstack/react-query";
+import { useSupabaseAuth } from "@/context/AuthContext";
+import { getStoredToken } from "@/lib/token";
 
-const TOKEN_KEY = "pf_session_token";
-
-export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function storeToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-}
-
-// Register getter so every request includes Bearer token
-setAuthTokenGetter(getStoredToken);
+export { getStoredToken, storeToken, clearToken } from "@/lib/token";
 
 type AuthContextType = {
   user: User | null;
@@ -32,10 +19,11 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
+  const { supabaseUser, isLoading: supabaseLoading, logout: supabaseLogout } = useSupabaseAuth();
   const [localUser, setLocalUser] = useState<User | null>(null);
-  const [hasToken, setHasToken] = useState(() => !!getStoredToken());
+  const hasToken = !!supabaseUser && !!getStoredToken();
 
-  const { data: user, isLoading } = useGetMe({
+  const { data: user, isLoading: meLoading } = useGetMe({
     query: {
       retry: false,
       enabled: hasToken,
@@ -43,26 +31,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    if (!supabaseUser) {
+      setLocalUser(null);
+    }
+  }, [supabaseUser]);
+
+  useEffect(() => {
     if (user !== undefined) {
       setLocalUser(user);
     }
   }, [user]);
 
-  const login = (token: string, user: User) => {
+  const login = (token: string, backendUser: User) => {
     storeToken(token);
-    setHasToken(true);
-    setLocalUser(user);
+    setLocalUser(backendUser);
   };
 
   const logout = () => {
-    clearToken();
-    setHasToken(false);
+    supabaseLogout();
     setLocalUser(null);
     queryClient.clear();
   };
 
+  const isLoading = supabaseLoading || (hasToken ? meLoading : false);
+
   return (
-    <AuthContext.Provider value={{ user: localUser, isLoading: hasToken ? isLoading : false, setUser: setLocalUser, login, logout }}>
+    <AuthContext.Provider value={{ user: localUser, isLoading, setUser: setLocalUser, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

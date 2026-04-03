@@ -4,7 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import { SupabaseAuthProvider } from "@/context/AuthContext";
 import { AuthProvider } from "@/lib/auth-context";
+import "@/lib/token";
 
 import { Dashboard } from "@/pages/dashboard";
 import { Login } from "@/pages/login";
@@ -45,14 +47,16 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <WouterRouter hook={useHashLocation}>
-            <Router />
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
-      </AuthProvider>
+      <SupabaseAuthProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <WouterRouter hook={useHashLocation}>
+              <Router />
+            </WouterRouter>
+            <Toaster />
+          </TooltipProvider>
+        </AuthProvider>
+      </SupabaseAuthProvider>
     </QueryClientProvider>
   );
 }

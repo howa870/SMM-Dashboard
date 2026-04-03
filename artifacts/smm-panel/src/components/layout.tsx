@@ -1,18 +1,18 @@
 import { Sidebar } from "./sidebar";
-import { useAuth } from "@/lib/auth-context";
+import { useSupabaseAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { Spinner } from "./ui/spinner";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { supabaseUser, isLoading } = useSupabaseAuth();
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    if (!isLoading && !user && location !== "/login" && location !== "/register") {
+    if (!isLoading && !supabaseUser && location !== "/login" && location !== "/register") {
       setLocation("/login");
     }
-  }, [user, isLoading, location, setLocation]);
+  }, [supabaseUser, isLoading, location, setLocation]);
 
   if (isLoading) {
     return (
@@ -22,11 +22,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user && (location === "/login" || location === "/register")) {
+  if (!supabaseUser && (location === "/login" || location === "/register")) {
     return <div className="min-h-[100dvh] bg-background text-foreground">{children}</div>;
   }
 
-  if (!user) return null;
+  if (!supabaseUser) return null;
 
   return (
     <div className="min-h-[100dvh] flex bg-background text-foreground overflow-hidden">

@@ -1,5 +1,7 @@
 import { Layout } from "@/components/layout";
 import { useAuth } from "@/lib/auth-context";
+import { useSupabaseAuth } from "@/context/AuthContext";
+import { useLocation } from "wouter";
 import { useGetDashboardStats, useGetPlatforms, getGetDashboardStatsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function Dashboard() {
   const { user } = useAuth();
+  const { supabaseUser, logout } = useSupabaseAuth();
+  const [, setLocation] = useLocation();
   
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats({
     query: {
@@ -44,9 +48,17 @@ export function Dashboard() {
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <header className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">مرحباً بعودتك، {user?.name}</h1>
-            <p className="text-gray-400">إليك نظرة عامة على حسابك اليوم</p>
+            <h1 className="text-3xl font-bold text-white mb-1">مرحباً {user?.name || supabaseUser?.email}</h1>
+            <p className="text-gray-400 text-sm">{supabaseUser?.email}</p>
+            <p className="text-gray-500 text-xs mt-1">إليك نظرة عامة على حسابك اليوم</p>
           </div>
+          <Button
+            variant="ghost"
+            onClick={async () => { await logout(); setLocation("/login"); }}
+            className="text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-xl border border-red-400/20"
+          >
+            تسجيل الخروج
+          </Button>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
