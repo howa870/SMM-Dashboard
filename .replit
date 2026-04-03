@@ -33,4 +33,4 @@ channel = "stable-25_05"
 [userenv.shared]
 VITE_SUPABASE_URL = "https://srauxtrdjoleaarqrave.supabase.co"
 VITE_SUPABASE_ANON_KEY = "sb_publishable_HI8r0QGrDHarMXYdUMjelA_UdDmsEky"
-TELEGRAM_CHAT_ID = "@astakor9"
+TELEGRAM_CHAT_ID = "6460074022"
