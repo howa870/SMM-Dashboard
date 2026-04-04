@@ -16,8 +16,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function SupabaseAuthProvider({ children }: { children: React.ReactNode }) {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [session, setSession]           = useState<Session | null>(null);
+  const [isLoading, setIsLoading]       = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession()
@@ -27,7 +27,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         setIsLoading(false);
       })
       .catch((err) => {
-        console.error("[AuthContext] getSession failed:", err?.message || err);
+        console.error("[AuthContext] getSession failed:", err?.message ?? err);
         setIsLoading(false);
       });
 
@@ -39,38 +39,51 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     return () => subscription.unsubscribe();
   }, []);
 
+  // ── Sync session token with Express backend (best-effort, never blocks auth) ──
   const syncWithBackend = async (email: string, password: string, name?: string) => {
     try {
       const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+      if (!apiBase) return;
       const endpoint = name ? `${apiBase}/api/auth/register` : `${apiBase}/api/auth/login`;
-      const body = name ? { name, email, password } : { email, password };
       const res = await fetch(endpoint, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body:    JSON.stringify(name ? { name, email, password } : { email, password }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (json.token) storeToken(json.token);
-    } catch {
+    } catch (err) {
+      console.warn("[AuthContext] syncWithBackend failed (non-blocking):", err instanceof Error ? err.message : err);
     }
   };
 
+  // ── LOGIN ──────────────────────────────────────────────────────────────────
   const login = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      console.error("[AuthContext] login error:", error.message);
+      throw error;
+    }
+    console.log("[AuthContext] login success:", data.user?.email);
     await syncWithBackend(email, password);
   };
 
+  // ── REGISTER ───────────────────────────────────────────────────────────────
   const register = async (name: string, email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name } },
     });
-    if (error) throw error;
+    if (error) {
+      console.error("[AuthContext] register error:", error.message);
+      throw error;
+    }
+    console.log("[AuthContext] register success:", data.user?.email);
     await syncWithBackend(email, password, name);
   };
 
+  // ── LOGOUT ─────────────────────────────────────────────────────────────────
   const logout = async () => {
     await supabase.auth.signOut();
     clearToken();
@@ -84,7 +97,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
 }
 
 export function useSupabaseAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useSupabaseAuth must be used within SupabaseAuthProvider");
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useSupabaseAuth must be used within SupabaseAuthProvider");
+  return ctx;
 }

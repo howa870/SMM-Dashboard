@@ -7,59 +7,99 @@ import { Loader2, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export function Register() {
-  const [name, setName]         = useState("");
-  const [email, setEmail]       = useState("");
-  const [password, setPassword] = useState("");
-  const [showPw, setShowPw]     = useState(false);
+  const [name, setName]           = useState("");
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
+  const [showPw, setShowPw]       = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const [, setLocation]         = useLocation();
-  const { toast }               = useToast();
+  const [, setLocation]           = useLocation();
+  const { toast }                 = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (password.length < 6) {
       toast({ variant: "destructive", title: "كلمة المرور قصيرة", description: "يجب أن تكون كلمة المرور 6 أحرف على الأقل." });
       return;
     }
 
     setIsPending(true);
-    try {
-      // ── Step 1: Create user via API server (uses service_role → email auto-confirmed) ──
-      const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
-      const res = await fetch(`${apiBase}/api/auth/supabase-register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
-      const json = await res.json();
 
-      if (!res.ok) {
-        // Friendly Arabic errors
-        let msg: string = json.error || "يرجى المحاولة مرة أخرى";
-        if (msg.includes("already registered") || msg.includes("مسجّل مسبقاً"))
-          msg = "هذا البريد الإلكتروني مسجّل مسبقاً — جرّب تسجيل الدخول";
-        toast({ variant: "destructive", title: "خطأ في إنشاء الحساب", description: msg });
-        return;
+    try {
+      // ── Step 1: Try server-side register first (bypasses email confirmation) ──
+      const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+      let serverRegisterOk = false;
+
+      if (apiBase) {
+        try {
+          const res  = await fetch(`${apiBase}/api/auth/supabase-register`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ name, email, password }),
+          });
+          const json = await res.json().catch(() => ({})) as { error?: string };
+
+          if (!res.ok) {
+            const msg: string = json.error ?? "يرجى المحاولة مرة أخرى";
+            console.error("[Register] server-register error:", msg);
+
+            if (
+              msg.includes("already registered") ||
+              msg.includes("مسجّل مسبقاً") ||
+              msg.includes("already been registered")
+            ) {
+              toast({ variant: "destructive", title: "البريد مستخدم", description: "هذا البريد الإلكتروني مسجّل مسبقاً — جرّب تسجيل الدخول" });
+              return;
+            }
+
+            // API returned a specific error — fall through to Supabase direct signUp
+            console.warn("[Register] Falling back to direct supabase.auth.signUp()");
+          } else {
+            serverRegisterOk = true;
+          }
+        } catch (apiErr) {
+          console.warn("[Register] API server unreachable, using direct signUp:", apiErr instanceof Error ? apiErr.message : apiErr);
+        }
       }
 
-      // ── Step 2: Sign in immediately (email is auto-confirmed) ──
+      // ── Step 2: If server didn't handle it, use Supabase directly ──
+      if (!serverRegisterOk) {
+        const { error: signUpErr } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name } },
+        });
+
+        if (signUpErr) {
+          console.error("[Register] supabase.auth.signUp error:", signUpErr.message);
+          let msg = signUpErr.message;
+          if (msg.includes("already registered") || msg.includes("User already registered"))
+            msg = "هذا البريد الإلكتروني مسجّل مسبقاً — جرّب تسجيل الدخول";
+          if (msg.includes("Invalid API key"))
+            msg = "خطأ في إعدادات Supabase — تأكد من VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY";
+          toast({ variant: "destructive", title: "خطأ في إنشاء الحساب", description: msg });
+          return;
+        }
+      }
+
+      // ── Step 3: Sign in immediately ──────────────────────────────────────
       const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signInErr) {
+        console.error("[Register] signInWithPassword error:", signInErr.message);
+      }
 
       if (signInData?.session) {
         toast({ title: "🎉 تم إنشاء الحساب بنجاح!", description: "مرحباً بك في Boost Iraq" });
         setLocation("/");
       } else {
-        // Account created but sign-in failed (rare edge case)
-        const errMsg = signInErr?.message || "";
-        if (errMsg.includes("Invalid login credentials")) {
-          toast({ title: "✅ تم إنشاء الحساب", description: "يمكنك الآن تسجيل الدخول." });
-        } else {
-          toast({ title: "✅ تم إنشاء الحساب بنجاح", description: "يمكنك الآن تسجيل الدخول بالبيانات المدخلة." });
-        }
+        toast({ title: "✅ تم إنشاء الحساب", description: "يمكنك الآن تسجيل الدخول بالبيانات المدخلة." });
         setLocation("/login");
       }
+
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "يرجى المحاولة مرة أخرى";
+      console.error("[Register] Unexpected error:", msg);
       toast({ variant: "destructive", title: "خطأ في الاتصال", description: msg });
     } finally {
       setIsPending(false);
@@ -68,7 +108,6 @@ export function Register() {
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4 relative overflow-hidden" dir="rtl">
-      {/* Background blobs */}
       <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] pointer-events-none"
         style={{ background: "rgba(108,92,231,0.15)" }} />
       <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] pointer-events-none"
