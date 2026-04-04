@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff } from "lucide-react";
-import { useSupabaseAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 
 export function Register() {
@@ -15,11 +14,9 @@ export function Register() {
   const [isPending, setIsPending] = useState(false);
   const [, setLocation]         = useLocation();
   const { toast }               = useToast();
-  const { register }            = useSupabaseAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (password.length < 6) {
       toast({ variant: "destructive", title: "كلمة المرور قصيرة", description: "يجب أن تكون كلمة المرور 6 أحرف على الأقل." });
       return;
@@ -27,52 +24,42 @@ export function Register() {
 
     setIsPending(true);
     try {
-      // 1 — Create the account in Supabase Auth
-      await register(name, email, password);
+      // ── Step 1: Create user via API server (uses service_role → email auto-confirmed) ──
+      const res = await fetch("/api/auth/supabase-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
+      const json = await res.json();
 
-      // 2 — Try immediate sign-in (works when email confirmation is OFF)
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (signInData?.session) {
-        // Email confirmation is disabled — user is logged in directly ✅
-        toast({ title: "🎉 تم إنشاء الحساب بنجاح!", description: "مرحباً بك في Boost Iraq" });
-        setLocation("/");
+      if (!res.ok) {
+        // Friendly Arabic errors
+        let msg: string = json.error || "يرجى المحاولة مرة أخرى";
+        if (msg.includes("already registered") || msg.includes("مسجّل مسبقاً"))
+          msg = "هذا البريد الإلكتروني مسجّل مسبقاً — جرّب تسجيل الدخول";
+        toast({ variant: "destructive", title: "خطأ في إنشاء الحساب", description: msg });
         return;
       }
 
-      // 3 — No session → email confirmation is required OR other issue
-      const confirmationNeeded = signInError?.message?.toLowerCase().includes("email") ||
-                                 signInError?.message?.toLowerCase().includes("confirm") ||
-                                 signInError?.message?.toLowerCase().includes("not confirmed");
+      // ── Step 2: Sign in immediately (email is auto-confirmed) ──
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (confirmationNeeded) {
-        toast({
-          title: "📧 تحقق من بريدك الإلكتروني",
-          description: "تم إرسال رابط التأكيد. انقر عليه ثم ارجع لتسجيل الدخول.",
-        });
+      if (signInData?.session) {
+        toast({ title: "🎉 تم إنشاء الحساب بنجاح!", description: "مرحباً بك في Boost Iraq" });
+        setLocation("/");
       } else {
-        toast({
-          title: "✅ تم إنشاء الحساب",
-          description: "الآن سجّل دخولك باستخدام بيانات حسابك.",
-        });
+        // Account created but sign-in failed (rare edge case)
+        const errMsg = signInErr?.message || "";
+        if (errMsg.includes("Invalid login credentials")) {
+          toast({ title: "✅ تم إنشاء الحساب", description: "يمكنك الآن تسجيل الدخول." });
+        } else {
+          toast({ title: "✅ تم إنشاء الحساب بنجاح", description: "يمكنك الآن تسجيل الدخول بالبيانات المدخلة." });
+        }
+        setLocation("/login");
       }
-      setLocation("/login");
-
     } catch (err: unknown) {
-      const raw = err instanceof Error ? err.message : String(err);
-
-      // Friendly Arabic error messages
-      let arabicMsg = raw;
-      if (raw.includes("already registered") || raw.includes("already been registered"))
-        arabicMsg = "هذا البريد الإلكتروني مسجّل مسبقاً. جرّب تسجيل الدخول.";
-      else if (raw.includes("invalid email") || raw.includes("Invalid email"))
-        arabicMsg = "البريد الإلكتروني غير صالح.";
-      else if (raw.includes("Password"))
-        arabicMsg = "كلمة المرور يجب أن تكون 6 أحرف على الأقل.";
-      else if (raw.includes("rate limit") || raw.includes("too many"))
-        arabicMsg = "تم إرسال طلبات كثيرة. انتظر دقيقة وحاول مجدداً.";
-
-      toast({ variant: "destructive", title: "خطأ في إنشاء الحساب", description: arabicMsg });
+      const msg = err instanceof Error ? err.message : "يرجى المحاولة مرة أخرى";
+      toast({ variant: "destructive", title: "خطأ في الاتصال", description: msg });
     } finally {
       setIsPending(false);
     }
@@ -80,7 +67,7 @@ export function Register() {
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4 relative overflow-hidden" dir="rtl">
-      {/* Blobs */}
+      {/* Background blobs */}
       <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] pointer-events-none"
         style={{ background: "rgba(108,92,231,0.15)" }} />
       <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[120px] pointer-events-none"
@@ -131,12 +118,13 @@ export function Register() {
               </button>
             </div>
             {password.length > 0 && password.length < 6 && (
-              <p className="text-xs text-red-400">كلمة المرور قصيرة جداً ({password.length}/6)</p>
+              <p className="text-xs text-red-400">كلمة المرور قصيرة ({password.length}/6)</p>
             )}
           </div>
 
           {/* Submit */}
-          <button type="submit" disabled={isPending || !name || !email || password.length < 6}
+          <button type="submit"
+            disabled={isPending || !name.trim() || !email.trim() || password.length < 6}
             className="btn-boost w-full h-12 mt-2">
             {isPending
               ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />جاري الإنشاء...</span>
@@ -144,7 +132,6 @@ export function Register() {
           </button>
         </form>
 
-        {/* Divider */}
         <div className="flex items-center gap-3 my-5">
           <div className="flex-1 h-px bg-white/8" />
           <span className="text-xs text-slate-500">أو</span>

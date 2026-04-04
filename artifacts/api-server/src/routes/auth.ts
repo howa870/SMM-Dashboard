@@ -4,8 +4,60 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { createSession, requireAuth, type AuthRequest } from "../middlewares/auth";
+import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
+
+// Supabase admin client — uses service role key to bypass email confirmation
+const SUPABASE_URL  = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || "";
+const SERVICE_KEY   = process.env["SUPABASE_SERVICE_ROLE_KEY"] || "";
+const supabaseAdmin = SUPABASE_URL && SERVICE_KEY
+  ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
+  : null;
+
+/**
+ * POST /api/auth/supabase-register
+ * Creates a Supabase user with email auto-confirmed (no email verification needed)
+ */
+router.post("/supabase-register", async (req, res) => {
+  const { name, email, password } = req.body || {};
+
+  if (!name || !email || !password) {
+    res.status(400).json({ error: "الاسم والبريد وكلمة المرور مطلوبة" });
+    return;
+  }
+  if (password.length < 6) {
+    res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
+    return;
+  }
+
+  if (!supabaseAdmin) {
+    res.status(500).json({ error: "إعدادات Supabase غير مكتملة" });
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,           // ← key: skip email verification
+      user_metadata: { name },
+    });
+
+    if (error) {
+      const msg = error.message.includes("already been registered") || error.message.includes("already registered")
+        ? "هذا البريد الإلكتروني مسجّل مسبقاً"
+        : error.message;
+      res.status(400).json({ error: msg });
+      return;
+    }
+
+    res.status(201).json({ success: true, userId: data.user?.id });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "خطأ في إنشاء الحساب";
+    res.status(500).json({ error: msg });
+  }
+});
 
 router.post("/register", async (req, res) => {
   const parsed = RegisterBody.safeParse(req.body);
