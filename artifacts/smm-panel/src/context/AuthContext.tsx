@@ -41,7 +41,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
 
   const syncWithBackend = async (email: string, password: string, name?: string) => {
     try {
-      const endpoint = name ? "/api/auth/register" : "/api/auth/login";
+      const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+      const endpoint = name ? `${apiBase}/api/auth/register` : `${apiBase}/api/auth/login`;
       const body = name ? { name, email, password } : { email, password };
       const res = await fetch(endpoint, {
         method: "POST",

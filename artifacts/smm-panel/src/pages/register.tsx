@@ -25,7 +25,8 @@ export function Register() {
     setIsPending(true);
     try {
       // ── Step 1: Create user via API server (uses service_role → email auto-confirmed) ──
-      const res = await fetch("/api/auth/supabase-register", {
+      const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+      const res = await fetch(`${apiBase}/api/auth/supabase-register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
