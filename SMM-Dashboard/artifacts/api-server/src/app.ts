@@ -31,6 +31,11 @@ app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// ── GET /api — health check ──────────────────────────────────────────────────
+app.get("/api", (_req, res) => {
+  res.json({ status: "API شغال ✅" });
+});
+
 app.use("/api", router);
 
 export default app;
