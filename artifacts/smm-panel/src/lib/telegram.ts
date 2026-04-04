@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") + "/api";
+const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "") + "/api";
 
 export async function notifyTelegramPayment(payment: {
   id: number;

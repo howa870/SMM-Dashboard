@@ -14,7 +14,7 @@ import { Loader2, Settings, Plus, Pencil, Trash2, Search, Globe } from "lucide-r
 import { supabase } from "@/lib/supabase";
 import type { Service, Platform } from "@/lib/supabase-db";
 
-const SMM_BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") + "/api/smm";
+const SMM_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "") + "/api/smm";
 
 async function syncServices(token: string): Promise<{ synced: number; total: number; message: string }> {
   const res = await fetch(`${SMM_BASE}/sync-services`, {

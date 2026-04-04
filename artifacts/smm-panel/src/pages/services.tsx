@@ -59,7 +59,7 @@ function qualityBadge(name: string): string | null {
 }
 
 // ─── Backend fetch ──────────────────────────────────────────────────────────────
-const SMM_BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") + "/api/smm";
+const SMM_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "") + "/api/smm";
 
 async function fetchServices(): Promise<Service[]> {
   const res = await fetch(`${SMM_BASE}/services`);

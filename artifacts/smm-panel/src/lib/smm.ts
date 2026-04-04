@@ -1,7 +1,7 @@
 // ─── Frontend Followiz API client ─────────────────────────────────────────────
 // All calls go to OUR backend — the API key is NEVER exposed here
 
-const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") + "/api/smm";
+const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "") + "/api/smm";
 
 export type FollowizService = {
   service: number;

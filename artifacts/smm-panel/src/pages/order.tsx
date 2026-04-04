@@ -16,7 +16,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 
-const BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "") + "/api/smm";
+const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "") + "/api/smm";
 
 // ─── Step tracker for order submission ─────────────────────────────────────────
 type Step = "idle" | "deducting" | "sending" | "saving" | "done" | "error";
