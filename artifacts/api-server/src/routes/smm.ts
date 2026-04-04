@@ -278,29 +278,48 @@ async function autoSyncServicesToDb(): Promise<number> {
       };
     });
 
-    // 4. Upsert in batches (onConflict = provider_service_id unique index)
-    // Helper: upsert a batch, retry without service_type if column missing
-    const upsertBatch = async (batch: typeof rows) => {
-      const { error } = await adminDb.from("services").upsert(batch, { onConflict: "provider_service_id" });
-      if (error && error.message.includes("service_type")) {
-        // Column doesn't exist yet — retry without it
-        const slim = batch.map(({ service_type: _st, ...rest }) => rest);
-        const { error: e2 } = await adminDb.from("services").upsert(slim, { onConflict: "provider_service_id" });
-        if (e2) { console.warn("[SMM] Batch upsert error (slim):", e2.message); return 0; }
-        return slim.length;
-      }
-      if (error) { console.warn("[SMM] Batch upsert error:", error.message); return 0; }
-      return batch.length;
-    };
+    // 4. Smart sync: fetch existing provider_service_ids → INSERT new, UPDATE existing
+    const keptIds = new Set(rows.map(r => r.provider_service_id));
+
+    // Load all existing followiz provider_service_id values from DB
+    const { data: existingRows } = await adminDb
+      .from("services")
+      .select("id, provider_service_id")
+      .eq("provider", "followiz");
+
+    const existingMap = new Map<string, number>(
+      (existingRows || []).map(r => [r.provider_service_id as string, r.id as number])
+    );
+
+    const toInsert = rows.filter(r => !existingMap.has(r.provider_service_id));
+    const toUpdate = rows.filter(r => existingMap.has(r.provider_service_id));
 
     let total = 0;
-    const keptIds = new Set(rows.map(r => r.provider_service_id));
-    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-      const batch = rows.slice(i, i + BATCH_SIZE);
-      const n = await upsertBatch(batch);
-      total += n;
-      console.log(`[SMM] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(rows.length / BATCH_SIZE)}: ${n} rows`);
+
+    // INSERT new services in batches
+    for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+      const batch = toInsert.slice(i, i + BATCH_SIZE);
+      const { error } = await adminDb.from("services").insert(batch);
+      if (error) {
+        console.warn("[SMM] Insert batch error:", error.message);
+      } else {
+        total += batch.length;
+      }
     }
+
+    // UPDATE existing services one by one (safe, no constraint needed)
+    let updateCount = 0;
+    for (const row of toUpdate) {
+      const existingId = existingMap.get(row.provider_service_id)!;
+      const { error } = await adminDb
+        .from("services")
+        .update(row)
+        .eq("id", existingId);
+      if (!error) updateCount++;
+    }
+    total += updateCount;
+
+    console.log(`[SMM] Sync summary — inserted: ${total - updateCount}, updated: ${updateCount}, total: ${total}`);
 
     // 5. Deactivate old Followiz services NOT in the filtered set
     try {
