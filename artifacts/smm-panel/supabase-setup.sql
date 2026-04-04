@@ -233,6 +233,9 @@ begin
   )
   on conflict (id) do nothing;
   return new;
+exception when others then
+  -- Never fail user creation because of profile insert issues
+  return new;
 end;
 $$ language plpgsql security definer;
 
