@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Perfect Follow - SMM Panel"
+title = "Boost Iraq - SMM Panel"
 version = "1.0.0"
 id = "artifacts/smm-panel"
 router = "path"
