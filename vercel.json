@@ -1,0 +1,29 @@
+{
+  "buildCommand": "pnpm --filter @workspace/smm-panel run build",
+  "outputDirectory": "artifacts/smm-panel/dist/public",
+  "installCommand": "pnpm install",
+  "framework": null,
+  "build": {
+    "env": {
+      "PORT": "3000",
+      "BASE_PATH": "/",
+      "NODE_ENV": "production"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}
