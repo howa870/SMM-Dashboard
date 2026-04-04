@@ -4,10 +4,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import { SupabaseAuthProvider } from "@/context/AuthContext";
+import { SupabaseAuthProvider, useSupabaseAuth } from "@/context/AuthContext";
 import { AuthProvider } from "@/lib/auth-context";
 import "@/lib/token";
 
+import { Landing } from "@/pages/landing";
 import { Dashboard } from "@/pages/dashboard";
 import { Login } from "@/pages/login";
 import { Register } from "@/pages/register";
@@ -25,8 +26,24 @@ import { AdminSettings } from "@/pages/admin/settings";
 
 const queryClient = new QueryClient();
 
+// Home route: landing page for guests, dashboard for logged-in users
+function HomeRoute() {
+  const { supabaseUser, isLoading } = useSupabaseAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: "#0F172A" }}>
+        <div className="w-12 h-12 rounded-full animate-spin"
+          style={{ border: "3px solid rgba(99,102,241,0.2)", borderTop: "3px solid #6366F1" }} />
+      </div>
+    );
+  }
+
+  return supabaseUser ? <Dashboard /> : <Landing />;
+}
+
 const ROUTES: Record<string, React.ComponentType> = {
-  "/": Dashboard,
+  "/": HomeRoute,
   "/login": Login,
   "/register": Register,
   "/services": Services,
