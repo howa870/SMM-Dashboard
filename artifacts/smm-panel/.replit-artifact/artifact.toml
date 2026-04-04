@@ -19,7 +19,7 @@ run = "pnpm --filter @workspace/smm-panel run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/smm-panel", "run", "build" ]
-publicDir = "artifacts/smm-panel/dist/public"
+publicDir = "artifacts/smm-panel/dist"
 serve = "static"
 
 [[services.production.rewrites]]

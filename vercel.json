@@ -1,6 +1,6 @@
 {
   "buildCommand": "pnpm --filter @workspace/smm-panel run build",
-  "outputDirectory": "artifacts/smm-panel/dist/public",
+  "outputDirectory": "artifacts/smm-panel/dist",
   "installCommand": "pnpm install",
   "framework": null,
   "build": {
@@ -11,10 +11,7 @@
     }
   },
   "rewrites": [
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
