@@ -10,19 +10,19 @@ import type { Service, ServiceType } from "@/lib/supabase-db";
 import { translateServiceName } from "@/lib/translate-service";
 
 // ─── Platform metadata ─────────────────────────────────────────────────────────
-const PLATFORM_META: Record<string, { icon: string; color: string; bg: string; border: string; glow: string }> = {
-  Instagram:  { icon: "📸", color: "text-pink-400",   bg: "from-pink-600/20 to-purple-600/20",   border: "border-pink-500/40",   glow: "shadow-pink-500/20"   },
-  TikTok:     { icon: "🎵", color: "text-cyan-300",   bg: "from-cyan-700/20 to-slate-800/30",    border: "border-cyan-500/40",   glow: "shadow-cyan-500/20"   },
-  Telegram:   { icon: "✈️", color: "text-sky-400",    bg: "from-sky-700/20 to-blue-700/20",      border: "border-sky-500/40",    glow: "shadow-sky-500/20"    },
-  YouTube:    { icon: "▶️", color: "text-red-400",    bg: "from-red-700/20 to-orange-700/20",    border: "border-red-500/40",    glow: "shadow-red-500/20"    },
-  Facebook:   { icon: "👤", color: "text-blue-300",   bg: "from-blue-800/20 to-indigo-800/20",   border: "border-blue-400/40",   glow: "shadow-blue-500/20"   },
-  Twitter:    { icon: "𝕏",  color: "text-gray-200",   bg: "from-gray-700/25 to-slate-800/25",    border: "border-gray-500/40",   glow: "shadow-gray-500/20"   },
-  Snapchat:   { icon: "👻", color: "text-yellow-300", bg: "from-yellow-700/20 to-amber-700/20",  border: "border-yellow-500/40", glow: "shadow-yellow-500/20" },
-  Twitch:     { icon: "🎮", color: "text-purple-300", bg: "from-purple-800/20 to-violet-800/20", border: "border-purple-500/40", glow: "shadow-purple-500/20" },
-  Spotify:    { icon: "🎧", color: "text-green-300",  bg: "from-green-800/20 to-emerald-800/20", border: "border-green-500/40",  glow: "shadow-green-500/20"  },
-  SoundCloud: { icon: "🔊", color: "text-orange-300", bg: "from-orange-700/20 to-amber-700/20",  border: "border-orange-500/40", glow: "shadow-orange-500/20" },
-  LinkedIn:   { icon: "💼", color: "text-blue-200",   bg: "from-blue-900/20 to-indigo-800/20",   border: "border-blue-300/40",   glow: "shadow-blue-400/20"   },
-  Other:      { icon: "🌐", color: "text-gray-400",   bg: "from-gray-800/20 to-gray-700/20",     border: "border-gray-500/40",   glow: "shadow-gray-500/20"   },
+const PLATFORM_META: Record<string, { logo: string; color: string; bg: string; border: string; glow: string }> = {
+  Instagram:  { logo: "https://cdn.simpleicons.org/instagram",  color: "text-pink-400",   bg: "from-pink-600/20 to-purple-600/20",   border: "border-pink-500/40",   glow: "shadow-pink-500/20"   },
+  TikTok:     { logo: "https://cdn.simpleicons.org/tiktok",     color: "text-cyan-300",   bg: "from-cyan-700/20 to-slate-800/30",    border: "border-cyan-500/40",   glow: "shadow-cyan-500/20"   },
+  Telegram:   { logo: "https://cdn.simpleicons.org/telegram",   color: "text-sky-400",    bg: "from-sky-700/20 to-blue-700/20",      border: "border-sky-500/40",    glow: "shadow-sky-500/20"    },
+  YouTube:    { logo: "https://cdn.simpleicons.org/youtube",    color: "text-red-400",    bg: "from-red-700/20 to-orange-700/20",    border: "border-red-500/40",    glow: "shadow-red-500/20"    },
+  Facebook:   { logo: "https://cdn.simpleicons.org/facebook",   color: "text-blue-300",   bg: "from-blue-800/20 to-indigo-800/20",   border: "border-blue-400/40",   glow: "shadow-blue-500/20"   },
+  Twitter:    { logo: "https://cdn.simpleicons.org/twitter",    color: "text-gray-200",   bg: "from-gray-700/25 to-slate-800/25",    border: "border-gray-500/40",   glow: "shadow-gray-500/20"   },
+  Snapchat:   { logo: "https://cdn.simpleicons.org/snapchat",   color: "text-yellow-300", bg: "from-yellow-700/20 to-amber-700/20",  border: "border-yellow-500/40", glow: "shadow-yellow-500/20" },
+  Twitch:     { logo: "https://cdn.simpleicons.org/twitch",     color: "text-purple-300", bg: "from-purple-800/20 to-violet-800/20", border: "border-purple-500/40", glow: "shadow-purple-500/20" },
+  Spotify:    { logo: "https://cdn.simpleicons.org/spotify",    color: "text-green-300",  bg: "from-green-800/20 to-emerald-800/20", border: "border-green-500/40",  glow: "shadow-green-500/20"  },
+  SoundCloud: { logo: "https://cdn.simpleicons.org/soundcloud", color: "text-orange-300", bg: "from-orange-700/20 to-amber-700/20",  border: "border-orange-500/40", glow: "shadow-orange-500/20" },
+  LinkedIn:   { logo: "https://cdn.simpleicons.org/linkedin",   color: "text-blue-200",   bg: "from-blue-900/20 to-indigo-800/20",   border: "border-blue-300/40",   glow: "shadow-blue-400/20"   },
+  Other:      { logo: "https://cdn.simpleicons.org/globe",      color: "text-gray-400",   bg: "from-gray-800/20 to-gray-700/20",     border: "border-gray-500/40",   glow: "shadow-gray-500/20"   },
 };
 const getMeta = (p: string) => PLATFORM_META[p] || PLATFORM_META["Other"];
 
@@ -199,8 +199,9 @@ export function Services() {
                   <span>الخدمات</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
-                <span className={`text-lg font-bold ${currentMeta?.color}`}>
-                  {getMeta(selectedPlatform).icon} {selectedPlatform}
+                <span className={`text-lg font-bold flex items-center gap-2 ${currentMeta?.color}`}>
+                  <img src={getMeta(selectedPlatform).logo} className="platform-icon" alt={selectedPlatform} />
+                  {selectedPlatform}
                 </span>
                 <span className="text-gray-500 text-sm">({platformServices.length} خدمة)</span>
               </div>
@@ -277,7 +278,7 @@ export function Services() {
                     <button key={name} onClick={() => { setSelectedPlatform(name); setSelectedType("all"); setSearch(""); }}
                       className={`group p-4 rounded-2xl border bg-gradient-to-br ${meta.bg} ${meta.border} hover:shadow-lg ${meta.glow} transition-all hover:scale-[1.03] active:scale-100 text-right flex flex-col gap-2.5`}>
                       <div className="flex items-start justify-between">
-                        <span className="text-2xl select-none">{meta.icon}</span>
+                        <img src={meta.logo} className="platform-icon" alt={name} />
                         <div className="text-right">
                           <span className={`font-mono font-bold text-lg ${meta.color}`}>{count}</span>
                           <p className="text-[10px] text-gray-500">خدمة</p>

@@ -293,6 +293,18 @@ small, .muted {
   text-shadow: 0 2px 6px rgba(0,0,0,0.45);
 }
 
+/* ─── Platform logo icons ────────────────────────────────────────────────────── */
+.platform-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 4px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
 /* ─── Brand gradient ─────────────────────────────────────────────────────────── */
 .bg-boost-gradient {
   background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
