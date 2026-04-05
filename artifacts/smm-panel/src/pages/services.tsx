@@ -59,14 +59,13 @@ function qualityBadge(name: string): string | null {
 }
 
 // ─── Backend fetch ──────────────────────────────────────────────────────────────
-const SMM_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
-
 async function fetchServices(): Promise<Service[]> {
-  const res = await fetch(`${SMM_BASE}/api/services`);
+  const res = await fetch("/api/services");
   if (!res.ok) throw new Error("تعذر تحميل الخدمات");
-  const json = await res.json() as { ok: boolean; data: Service[] };
-  if (!json.ok) throw new Error("خطأ في تحميل الخدمات");
-  return json.data;
+  const json = await res.json();
+  const list = json.services ?? json.data ?? (Array.isArray(json) ? json : []);
+  if (!Array.isArray(list)) throw new Error("تنسيق بيانات غير صحيح");
+  return list as Service[];
 }
 
 // ─── Single service row ─────────────────────────────────────────────────────────

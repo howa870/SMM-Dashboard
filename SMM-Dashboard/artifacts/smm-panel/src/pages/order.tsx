@@ -16,8 +16,6 @@ import { useProfile } from "@/hooks/useProfile";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 
-const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
-
 // ─── Step tracker for order submission ─────────────────────────────────────────
 type Step = "idle" | "deducting" | "sending" | "saving" | "done" | "error";
 
@@ -35,43 +33,44 @@ async function placeOrder(params: {
   service_id: number | string;
   link: string;
   quantity: number;
+  price_per_1000?: number;
   token: string;
 }): Promise<{
   ok: boolean;
-  order_id: number;
+  order_id: string | number;
   provider_order_id: string | null;
   total_price: number;
   message: string;
 }> {
-  const res = await fetch(`${BASE}/api/order`, {
+  const res = await fetch("/api/order", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${params.token}`,
     },
     body: JSON.stringify({
-      service:    params.service_id,
-      service_id: params.service_id,
-      link:       params.link,
-      quantity:   params.quantity,
+      service:         params.service_id,
+      service_id:      params.service_id,
+      link:            params.link,
+      quantity:        params.quantity,
+      price_per_1000:  params.price_per_1000 ?? 0,
     }),
   });
   const json = await res.json() as {
-    ok: boolean;
-    order_id?: number;
-    order?: { id: number };
-    provider_order_id?: string;
+    ok?: boolean;
+    success?: boolean;
+    order_id?: string | null;
     total_price?: number;
-    message?: string;
+    data?: { order_id?: string; followiz_order_id?: string; total_price?: number };
     error?: string;
   };
-  if (!res.ok || !json.ok) throw new Error(json.error || "فشل إنشاء الطلب");
+  if (!res.ok || (!json.ok && !json.success)) throw new Error(json.error || "فشل إنشاء الطلب");
   return {
     ok:                true,
-    order_id:          json.order_id || json.order?.id || 0,
-    provider_order_id: json.provider_order_id || null,
-    total_price:       json.total_price || 0,
-    message:           json.message || "تم إنشاء الطلب بنجاح",
+    order_id:          json.order_id || json.data?.order_id || 0,
+    provider_order_id: json.order_id || json.data?.followiz_order_id || null,
+    total_price:       json.total_price ?? json.data?.total_price ?? 0,
+    message:           "تم إنشاء الطلب بنجاح",
   };
 }
 
@@ -93,7 +92,7 @@ export function NewOrder() {
   const [step,       setStep]       = useState<Step>("idle");
   const [errorMsg,   setErrorMsg]   = useState<string | null>(null);
   const [successData, setSuccessData] = useState<{
-    order_id: number; provider_order_id: string | null; total_price: number; message: string;
+    order_id: string | number; provider_order_id: string | null; total_price: number; message: string;
   } | null>(null);
 
   const [, setLocation]   = useLocation();
@@ -143,9 +142,10 @@ export function NewOrder() {
 
       setStep("sending");
       const result = await placeOrder({
-        service_id: serviceId,   // pass as-is (backend resolves Followiz ID too)
+        service_id:    serviceId,
         link,
-        quantity:   Number(quantity),
+        quantity:      Number(quantity),
+        price_per_1000: servicePrice,
         token,
       });
 

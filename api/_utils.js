@@ -10,7 +10,7 @@ export const FOLLOWIZ_URL   = "https://followiz.com/api/v2";
 // ─── CORS ────────────────────────────────────────────────────────────────────
 export function setCors(res) {
   res.setHeader("Access-Control-Allow-Origin",  "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,apikey");
 }
 
@@ -36,21 +36,39 @@ export async function sbInsert(table, row) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method:  "POST",
     headers: {
-      apikey:          SERVICE_KEY,
-      Authorization:   `Bearer ${SERVICE_KEY}`,
-      "Content-Type":  "application/json",
-      Prefer:          "return=representation",
+      apikey:         SERVICE_KEY,
+      Authorization:  `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer:         "return=representation",
     },
     body: JSON.stringify(row),
   });
   const text = await res.text();
-  if (!res.ok) throw new Error(`Supabase insert ${table}: ${text.slice(0,200)}`);
+  if (!res.ok) throw new Error(`Supabase insert ${table}: ${text.slice(0, 200)}`);
+  try { return JSON.parse(text); } catch { return {}; }
+}
+
+/** UPDATE rows in a Supabase table by filter (service role) */
+export async function sbUpdate(table, filter, updates) {
+  if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("Supabase env vars missing");
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
+    method:  "PATCH",
+    headers: {
+      apikey:         SERVICE_KEY,
+      Authorization:  `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer:         "return=representation",
+    },
+    body: JSON.stringify(updates),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Supabase update ${table}: ${text.slice(0, 200)}`);
   try { return JSON.parse(text); } catch { return {}; }
 }
 
 /** GET the JWT user from an Authorization Bearer token */
 export async function sbGetUser(token) {
-  if (!SUPABASE_URL || !SERVICE_KEY) throw new Error("Supabase env vars missing");
+  if (!SUPABASE_URL) throw new Error("Supabase env vars missing");
   const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: {
       apikey:        ANON_KEY || SERVICE_KEY,
@@ -67,9 +85,9 @@ export async function sbCreateUser({ email, password, name }) {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
     method:  "POST",
     headers: {
-      apikey:          SERVICE_KEY,
-      Authorization:   `Bearer ${SERVICE_KEY}`,
-      "Content-Type":  "application/json",
+      apikey:         SERVICE_KEY,
+      Authorization:  `Bearer ${SERVICE_KEY}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       email,

@@ -1,4 +1,4 @@
-import { setCors, sbGetUser, sbSelect, followizCall, FOLLOWIZ_KEY } from "./_utils.js";
+import { setCors, sbGetUser, sbSelect, followizCall, FOLLOWIZ_KEY, ANON_KEY, SERVICE_KEY } from "./_utils.js";
 
 export default async function handler(req, res) {
   setCors(res);
@@ -6,25 +6,31 @@ export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ ok: false, error: "Method not allowed" });
 
   try {
-    // ── Followiz account balance ──────────────────────────────────────────────
-    if (FOLLOWIZ_KEY) {
-      const result = await followizCall({ action: "balance" });
-      return res.json({ ok: true, balance: result.balance ?? result, source: "followiz" });
+    const authHeader = req.headers["authorization"] || "";
+    const token      = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+    // ── User wallet balance from Supabase (primary) ───────────────────────────
+    if (token && SERVICE_KEY) {
+      try {
+        const user = await sbGetUser(token);
+        if (user?.id) {
+          const rows = await sbSelect("profiles", `id=eq.${user.id}&select=balance`);
+          const balance = Number(rows?.[0]?.balance ?? 0);
+          return res.json({ ok: true, success: true, balance });
+        }
+      } catch (e) {
+        console.warn("[balance] user lookup failed:", e.message);
+      }
     }
 
-    // ── User wallet balance from Supabase ─────────────────────────────────────
-    const authHeader = req.headers["authorization"] || "";
-    const token      = authHeader.replace("Bearer ", "").trim();
+    // ── Followiz account balance (admin fallback) ─────────────────────────────
+    if (FOLLOWIZ_KEY) {
+      const result = await followizCall({ action: "balance" });
+      const balance = Number(result.balance ?? 0);
+      return res.json({ ok: true, success: true, balance, source: "followiz" });
+    }
 
-    if (!token) return res.status(401).json({ ok: false, error: "مطلوب تسجيل الدخول" });
-
-    const user = await sbGetUser(token);
-    if (!user?.id) return res.status(401).json({ ok: false, error: "جلسة غير صالحة" });
-
-    const rows = await sbSelect("profiles", `id=eq.${user.id}&select=balance`);
-    const balance = rows?.[0]?.balance ?? 0;
-
-    res.json({ ok: true, balance, source: "db" });
+    return res.status(401).json({ ok: false, error: "مطلوب تسجيل الدخول" });
 
   } catch (err) {
     console.error("[balance]", err.message);

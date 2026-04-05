@@ -11,7 +11,7 @@ export default async function handler(req, res) {
       try {
         const data = await sbSelect("services", "status=eq.active&order=id");
         if (Array.isArray(data) && data.length > 0) {
-          return res.json({ ok: true, data, source: "db", count: data.length });
+          return res.json({ ok: true, success: true, services: data, data, count: data.length });
         }
       } catch (dbErr) {
         console.warn("[services] Supabase fallback:", dbErr.message);
@@ -23,7 +23,8 @@ export default async function handler(req, res) {
       return res.status(503).json({ ok: false, error: "FOLLOWIZ_KEY غير مضبوط" });
     }
     const raw = await followizCall({ action: "services" });
-    res.json({ ok: true, data: raw, source: "followiz" });
+    const services = Array.isArray(raw) ? raw : [];
+    res.json({ ok: true, success: true, services, data: services, count: services.length, source: "followiz" });
 
   } catch (err) {
     console.error("[services]", err.message);
