@@ -9,9 +9,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Receipt, Clock, CheckCircle2, XCircle, Info, Upload, Copy, Check, Sparkles, ImageIcon } from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
-import { useUserPayments, useCreatePayment } from "@/hooks/usePaymentsData";
+import { useUserPayments } from "@/hooks/usePaymentsData";
 import { uploadProofImage, getPaymentSettings } from "@/lib/supabase-db";
-import { notifyTelegramPayment } from "@/lib/telegram";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
@@ -74,7 +73,7 @@ export function Wallet() {
   const [copiedNumber, setCopiedNumber] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const { mutateAsync: createPayment, isPending: isSubmitting } = useCreatePayment();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!supabaseUser) return;
@@ -133,28 +132,35 @@ export function Wallet() {
       setUploadingProof(false);
     }
 
+    setIsSubmitting(true);
     try {
-      const payment = await createPayment({
-        amount: Number(amount),
-        method,
-        transaction_id: transactionId || undefined,
-        proof_url,
-        notes: notes || undefined,
+      // Use API endpoint (service role — bypasses Supabase RLS)
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+      if (!token) throw new Error("انتهت الجلسة، سجّل الدخول مجدداً");
+
+      const res = await fetch("/api/payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          amount:         Number(amount),
+          method,
+          transaction_id: transactionId || null,
+          proof_url:      proof_url || null,
+          notes:          notes || null,
+        }),
       });
-      notifyTelegramPayment({
-        id: payment.id,
-        email: supabaseUser?.email || "مجهول",
-        amount: Number(amount),
-        method,
-        transaction_id: transactionId || null,
-        proof_url: proof_url || null,
-        notes: notes || null,
-      }).catch(() => {});
+      const json = await res.json() as { ok?: boolean; success?: boolean; error?: string };
+      if (!json.ok && !json.success) throw new Error(json.error || "فشل إرسال الطلب");
+
       toast({ title: "✅ تم إرسال طلب الشحن بنجاح", description: "سيتم مراجعته من قِبل الإدارة قريباً." });
       setAmount(""); setTransactionId(""); setNotes(""); setProofFile(null); setProofPreview(null);
+      queryClient.invalidateQueries({ queryKey: ["supabase", "payments"] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       toast({ variant: "destructive", title: "فشل إرسال الطلب", description: msg });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
