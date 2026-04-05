@@ -695,10 +695,90 @@ button[class*="primary"] {
 :root .badge-approved { color: #166534; background: rgba(34,197,94,0.12); }
 :root .badge-rejected { color: #991b1b; background: rgba(239,68,68,0.12); }
 
-/* ─── Ensure headings have full opacity / strong contrast ────────────────────── */
+/* ─── Headings inherit body color (do NOT hardcode — breaks gradient cards) ──── */
 h1, h2, h3, h4, h5, h6 {
-  color: var(--theme-text);
   opacity: 1;
+}
+
+/* ═══════════════════════════════════════════════════
+   BALANCE NUMBER — Maximum visibility in gradient cards
+   ═══════════════════════════════════════════════════ */
+
+/* ─── .balance / .amount classes — strong neon-readable style ────────────────── */
+.balance, .amount {
+  color: #ffffff !important;
+  font-size: 2.25rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 2px 6px rgba(0,0,0,0.55),
+    0 0 20px rgba(99,102,241,0.3);
+  -webkit-text-stroke: 0.5px rgba(0,0,0,0.25);
+  opacity: 1 !important;
+}
+
+/* ─── Wallet balance card — target the actual h2 inside gradient card ─────────── */
+.animate-balance-glow h2,
+.animate-balance-glow .balance-number {
+  color: #ffffff !important;
+  text-shadow:
+    0 2px 8px rgba(0,0,0,0.6),
+    0 0 30px rgba(255,255,255,0.15);
+  -webkit-text-stroke: 0.5px rgba(0,0,0,0.3);
+  opacity: 1 !important;
+  font-weight: 900 !important;
+}
+
+/* Ensure any paragraph / subtext inside the balance card also stays white */
+.animate-balance-glow p,
+.animate-balance-glow span {
+  opacity: 1 !important;
+}
+
+/* ─── .glow-balance card — ensure white text with shadow ─────────────────────── */
+.glow-balance h2,
+.glow-balance p,
+.glow-balance span {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* ─── .main-card — strong overlay + no blur conflict ────────────────────────── */
+.main-card {
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.main-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.22);
+  z-index: 1;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.main-card > * {
+  position: relative;
+  z-index: 2;
+}
+.main-card * {
+  opacity: 1 !important;
+  color: #ffffff !important;
+}
+.main-card h1,
+.main-card h2,
+.main-card h3 {
+  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+/* ─── Gradient balance card (inline style) — protect text inside ─────────────── */
+[style*="linear-gradient"] > .relative h2,
+[style*="linear-gradient"] > .relative p,
+[style*="linear-gradient"] > .relative span {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 
 /* ─── Table cells — readable ─────────────────────────────────────────────────── */
