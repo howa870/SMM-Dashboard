@@ -6,39 +6,6 @@ import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import path from "path";
 import fs from "fs";
 
-const BOT_TOKEN = process.env["TELEGRAM_BOT_TOKEN"] || "";
-const ADMIN_CHAT_ID = process.env["TELEGRAM_CHAT_ID"] || "";
-
-async function notifyAdminNewPayment(params: { userId: number; amount: string; method: string }) {
-  if (!BOT_TOKEN || !ADMIN_CHAT_ID) return;
-  const methodLabel: Record<string, string> = {
-    zaincash: "زين كاش 💳", asiacell: "آسياسيل 📱", qicard: "QiCard 💰", manual: "يدوي 🏦",
-  };
-  const text = [
-    "💰 <b>طلب شحن جديد</b>",
-    "",
-    `👤 User ID: <code>${params.userId}</code>`,
-    `💵 Amount: <b>${Number(params.amount).toLocaleString()} IQD</b>`,
-    `💳 Method: ${methodLabel[params.method] || params.method}`,
-    "",
-    `⏱ ${new Date().toLocaleString("ar-IQ")}`,
-  ].join("\n");
-  try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: ADMIN_CHAT_ID,
-        text,
-        parse_mode: "HTML",
-        reply_markup: { inline_keyboard: [[{ text: "📥 عرض الطلبات المعلقة", callback_data: "payments" }]] },
-      }),
-    });
-  } catch (err) {
-    console.warn("[Payments] Failed to notify Telegram admin:", err);
-  }
-}
-
 const router = Router();
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 
@@ -97,7 +64,6 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     }).returning();
     const formatted = await formatPayment(payment);
     res.status(201).json(formatted);
-    notifyAdminNewPayment({ userId: payment.userId, amount: payment.amount, method: payment.method }).catch(() => {});
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "خطأ في الخادم" });

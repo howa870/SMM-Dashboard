@@ -224,13 +224,13 @@ export async function submitOrder(params: {
   return data as SupabaseOrder;
 }
 
-export async function deductBalance(userId: string, amount: number): Promise<void> {
-  const { error } = await supabase.rpc("decrement_balance_by_user", {
-    uid: userId,
-    amount_input: amount,
-  });
+export async function deductBalance(userId: string, newBalance: number): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ balance: newBalance })
+    .eq("id", userId);
   if (error) {
-    console.error("[DB] deductBalance RPC:", error.message);
+    console.error("[DB] deductBalance:", error.message);
     throw toError(error);
   }
 }
@@ -285,19 +285,20 @@ export async function getAllPayments(): Promise<Payment[]> {
 }
 
 export async function approvePayment(paymentId: string, userId: string, amount: number): Promise<void> {
-  const { error: rpcErr } = await supabase.rpc("increment_balance_by_user", {
-    uid: userId,
-    amount_input: Number(amount),
-  });
-  if (rpcErr) {
-    // Fallback: manual balance update if RPC not yet deployed
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles").select("balance").eq("id", userId).single();
-    if (profileError) throw toError(profileError);
-    const { error: balanceError } = await supabase
-      .from("profiles").update({ balance: Number(profileData.balance) + Number(amount) }).eq("id", userId);
-    if (balanceError) throw toError(balanceError);
-  }
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
+    .select("balance")
+    .eq("id", userId)
+    .single();
+  if (profileError) throw toError(profileError);
+
+  const newBalance = Number(profileData.balance) + Number(amount);
+
+  const { error: balanceError } = await supabase
+    .from("profiles")
+    .update({ balance: newBalance })
+    .eq("id", userId);
+  if (balanceError) throw toError(balanceError);
 
   const { error: paymentError } = await supabase
     .from("payments")

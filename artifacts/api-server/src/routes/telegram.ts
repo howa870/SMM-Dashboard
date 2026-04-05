@@ -3,33 +3,33 @@ import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
 
-// ─── ENV ──────────────────────────────────────────────────────
+// ─── ENV VARS ────────────────────────────────────────────────────────────────
 const BOT_TOKEN    = process.env["TELEGRAM_BOT_TOKEN"] || "";
-const CHAT_ID      = process.env["TELEGRAM_CHAT_ID"]   || "";
+const CHAT_ID      = process.env["TELEGRAM_CHAT_ID"] || "";
 const ADMIN_ID     = Number(process.env["TELEGRAM_ADMIN_ID"] || "0");
-const SUPABASE_URL = process.env["VITE_SUPABASE_URL"]  || process.env["SUPABASE_URL"] || "";
+const SUPABASE_URL = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || "";
 const SUPABASE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"] || "";
 
-if (!BOT_TOKEN)    console.error("[TG] ❌ TELEGRAM_BOT_TOKEN not set — bot will not respond");
-if (!SUPABASE_KEY) console.error("[TG] ❌ SUPABASE_SERVICE_ROLE_KEY not set — approve/reject will fail");
-if (!ADMIN_ID)     console.warn("[TG] ⚠️  TELEGRAM_ADMIN_ID not set — ALL users can control the bot!");
-if (!CHAT_ID)      console.warn("[TG] ⚠️  TELEGRAM_CHAT_ID not set — admin notifications disabled");
+if (!BOT_TOKEN)    console.error("[TG] ❌ TELEGRAM_BOT_TOKEN not set");
+if (!SUPABASE_KEY) console.error("[TG] ❌ SUPABASE_SERVICE_ROLE_KEY not set");
+if (!ADMIN_ID)     console.warn("[TG] ⚠️  TELEGRAM_ADMIN_ID not set — admin check disabled");
 
+// Admin Supabase client — bypasses RLS
 const db = SUPABASE_URL && SUPABASE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_KEY)
   : null;
 
-// ─── STATE (pending text-input flows) ─────────────────────────
-const userState = new Map<number, {
-  flow: "edit_number";
-  key: "zain" | "asiacell" | "qicard";
-  label: string;
-}>();
+// ─── IN-MEMORY STATE ─────────────────────────────────────────────────────────
+// Tracks multi-step conversations per Telegram user
+type AdminFlow =
+  | { flow: "add_balance" }
+  | { flow: "edit_number"; key: "zain" | "asiacell" | "qicard"; label: string };
 
-// ─── TELEGRAM API HELPERS ─────────────────────────────────────
+const userState = new Map<number, AdminFlow>();
 
+// ─── TELEGRAM API HELPERS ────────────────────────────────────────────────────
 async function tgRequest(method: string, body: Record<string, unknown>): Promise<unknown> {
-  if (!BOT_TOKEN) { console.warn(`[TG] tgRequest(${method}) skipped — no token`); return null; }
+  if (!BOT_TOKEN) return null;
   try {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
       method: "POST",
@@ -40,12 +40,16 @@ async function tgRequest(method: string, body: Record<string, unknown>): Promise
     if (!json.ok) console.warn(`[TG] ${method} failed:`, json.description);
     return json.result ?? null;
   } catch (err) {
-    console.error(`[TG] ${method} network error:`, err);
+    console.error(`[TG] ${method} error:`, err);
     return null;
   }
 }
 
-async function sendMessage(chatId: number | string, text: string, extra?: Record<string, unknown>) {
+async function sendMessage(
+  chatId: number | string,
+  text: string,
+  extra?: Record<string, unknown>
+) {
   return tgRequest("sendMessage", {
     chat_id: chatId,
     text,
@@ -55,7 +59,12 @@ async function sendMessage(chatId: number | string, text: string, extra?: Record
   });
 }
 
-async function editMessage(chatId: number | string, messageId: number, text: string, extra?: Record<string, unknown>) {
+async function editMessage(
+  chatId: number | string,
+  messageId: number,
+  text: string,
+  extra?: Record<string, unknown>
+) {
   return tgRequest("editMessageText", {
     chat_id: chatId,
     message_id: messageId,
@@ -63,6 +72,14 @@ async function editMessage(chatId: number | string, messageId: number, text: str
     parse_mode: "HTML",
     disable_web_page_preview: true,
     ...extra,
+  });
+}
+
+async function editMarkup(chatId: number | string, messageId: number, markup: object) {
+  return tgRequest("editMessageReplyMarkup", {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: markup,
   });
 }
 
@@ -74,39 +91,107 @@ async function answerCallback(callbackId: string, text: string, alert = false) {
   });
 }
 
-// ─── ADMIN CHECK ──────────────────────────────────────────────
-
+// ─── SECURITY CHECK ───────────────────────────────────────────────────────────
 function isAdmin(fromId: number): boolean {
-  if (!ADMIN_ID) return true; // open if ADMIN_ID not configured
+  if (!ADMIN_ID) return true; // if no admin ID set, allow all (dev mode)
   return fromId === ADMIN_ID;
 }
 
-// ─── MENUS ────────────────────────────────────────────────────
-
+// ─── KEYBOARDS ───────────────────────────────────────────────────────────────
 const MAIN_MENU = {
   inline_keyboard: [
-    [{ text: "📥 الطلبات المعلقة", callback_data: "pending_payments" }],
-    [{ text: "⚙️ أرقام الدفع",    callback_data: "payment_numbers"  }],
+    [
+      { text: "📊 الإحصائيات",     callback_data: "stats"        },
+      { text: "💰 الأرباح",        callback_data: "revenue"      },
+    ],
+    [
+      { text: "📥 الطلبات المعلقة", callback_data: "payments"    },
+      { text: "👥 المستخدمين",     callback_data: "users"        },
+    ],
+    [
+      { text: "⚙️ تعديل الأرقام",  callback_data: "edit_numbers" },
+      { text: "➕ إضافة رصيد",     callback_data: "add_balance"  },
+    ],
+    [
+      { text: "🔄 تحديث",          callback_data: "refresh"      },
+    ],
   ],
 };
 
 const EDIT_NUMBERS_MENU = {
   inline_keyboard: [
-    [{ text: "📱 زين كاش",  callback_data: "edit_zain"     }],
-    [{ text: "📞 آسياسيل", callback_data: "edit_asiacell" }],
-    [{ text: "💳 QiCard",  callback_data: "edit_qicard"   }],
-    [{ text: "🔙 رجوع",    callback_data: "back_main"     }],
+    [{ text: "📱 زين كاش",   callback_data: "edit_zain"      }],
+    [{ text: "📞 آسياسيل",  callback_data: "edit_asiacell"  }],
+    [{ text: "💳 QiCard",   callback_data: "edit_qicard"    }],
+    [{ text: "🔙 رجوع",     callback_data: "back_main"      }],
   ],
 };
 
-// ─── PAYMENTS LIST ────────────────────────────────────────────
+// ─── ADMIN STATS ─────────────────────────────────────────────────────────────
+async function getStats() {
+  if (!db) return null;
+  const [users, allPayments, approvedPayments, pending] = await Promise.all([
+    db.from("profiles").select("id", { count: "exact", head: true }),
+    db.from("payments").select("id", { count: "exact", head: true }),
+    db.from("payments").select("amount").eq("status", "approved"),
+    db.from("payments").select("id", { count: "exact", head: true }).eq("status", "pending"),
+  ]);
+  const totalRevenue = (approvedPayments.data || []).reduce((s, p) => s + Number(p.amount), 0);
+  return {
+    totalUsers:    users.count    || 0,
+    totalPayments: allPayments.count || 0,
+    pendingCount:  pending.count  || 0,
+    totalRevenue,
+  };
+}
 
+async function sendStats(chatId: number | string) {
+  const stats = await getStats();
+  if (!stats) { await sendMessage(chatId, "⚠️ تعذر الاتصال بقاعدة البيانات"); return; }
+  const text = [
+    "📊 <b>إحصائيات النظام</b>",
+    "",
+    `👥 إجمالي المستخدمين:     <b>${stats.totalUsers}</b>`,
+    `📥 إجمالي طلبات الشحن:    <b>${stats.totalPayments}</b>`,
+    `⏳ طلبات معلقة:           <b>${stats.pendingCount}</b>`,
+    `💰 إجمالي الأرباح:         <b>${stats.totalRevenue.toLocaleString()} IQD</b>`,
+    "",
+    `🕐 ${new Date().toLocaleString("ar-IQ")}`,
+  ].join("\n");
+  await sendMessage(chatId, text, { reply_markup: MAIN_MENU });
+}
+
+// ─── REVENUE REPORT ──────────────────────────────────────────────────────────
+async function sendRevenue(chatId: number | string) {
+  if (!db) { await sendMessage(chatId, "⚠️ تعذر الاتصال بقاعدة البيانات"); return; }
+  const today = new Date().toISOString().slice(0, 10);
+  const [all, todayRows, approved, pending, rejected] = await Promise.all([
+    db.from("payments").select("amount").eq("status", "approved"),
+    db.from("payments").select("amount").eq("status", "approved").gte("created_at", today),
+    db.from("payments").select("id", { count: "exact", head: true }).eq("status", "approved"),
+    db.from("payments").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    db.from("payments").select("id", { count: "exact", head: true }).eq("status", "rejected"),
+  ]);
+  const totalRev = (all.data || []).reduce((s, p) => s + Number(p.amount), 0);
+  const todayRev = (todayRows.data || []).reduce((s, p) => s + Number(p.amount), 0);
+  const text = [
+    "💰 <b>تقرير الأرباح</b>",
+    "",
+    `📅 إيرادات اليوم:    <b>${todayRev.toLocaleString()} IQD</b>`,
+    `📈 إجمالي الإيرادات: <b>${totalRev.toLocaleString()} IQD</b>`,
+    "",
+    `✅ مقبولة:  <b>${approved.count || 0}</b>`,
+    `⏳ معلقة:   <b>${pending.count  || 0}</b>`,
+    `❌ مرفوضة: <b>${rejected.count || 0}</b>`,
+    "",
+    `🕐 ${new Date().toLocaleString("ar-IQ")}`,
+  ].join("\n");
+  await sendMessage(chatId, text, { reply_markup: MAIN_MENU });
+}
+
+// ─── PENDING PAYMENTS LIST ───────────────────────────────────────────────────
 async function sendPaymentsList(chatId: number | string) {
-  if (!db) {
-    await sendMessage(chatId, "⚠️ قاعدة البيانات غير متاحة\n<code>SUPABASE_SERVICE_ROLE_KEY</code> غير مضبوط");
-    return;
-  }
-
+  if (!db) { await sendMessage(chatId, "⚠️ تعذر الاتصال بقاعدة البيانات"); return; }
   const { data, error } = await db
     .from("payments")
     .select("id, amount, method, status, created_at, user_id, transaction_id, proof_url")
@@ -114,24 +199,17 @@ async function sendPaymentsList(chatId: number | string) {
     .order("created_at", { ascending: false })
     .limit(10);
 
-  if (error) {
-    await sendMessage(chatId, `⚠️ خطأ في قاعدة البيانات:\n<code>${error.message}</code>`);
-    return;
-  }
-
+  if (error) { await sendMessage(chatId, `⚠️ خطأ: ${error.message}`); return; }
   if (!data || data.length === 0) {
     await sendMessage(chatId, "✅ لا توجد طلبات شحن معلقة حالياً", { reply_markup: MAIN_MENU });
     return;
   }
 
   const methodLabel: Record<string, string> = {
-    zaincash: "زين كاش 💳",
-    asiacell: "آسياسيل 📱",
-    qicard:   "QiCard 💰",
-    manual:   "يدوي 🏦",
+    zaincash: "زين كاش 💳", asiacell: "آسياسيل 📱", qicard: "QiCard 💰", manual: "يدوي 🏦",
   };
 
-  await sendMessage(chatId, `📥 <b>${data.length} طلب شحن معلق</b>\n━━━━━━━━━━━━━━━━`);
+  await sendMessage(chatId, `📥 <b>آخر ${data.length} طلب شحن معلق</b>\n━━━━━━━━━━━━━━━━`);
 
   for (const pay of data) {
     const shortId = String(pay.id).slice(0, 8);
@@ -140,7 +218,7 @@ async function sendPaymentsList(chatId: number | string) {
       `💰 <b>${Number(pay.amount).toLocaleString()} IQD</b>`,
       `💳 ${methodLabel[pay.method] || pay.method}`,
       pay.transaction_id ? `🔢 TXID: <code>${pay.transaction_id}</code>` : null,
-      pay.proof_url      ? `📸 <a href="${pay.proof_url}">إثبات الدفع</a>`  : null,
+      pay.proof_url ? `📸 <a href="${pay.proof_url}">إثبات الدفع</a>` : null,
       `⏱ ${new Date(pay.created_at).toLocaleString("ar-IQ")}`,
     ].filter(Boolean).join("\n");
 
@@ -153,32 +231,197 @@ async function sendPaymentsList(chatId: number | string) {
       },
     });
   }
-
   await sendMessage(chatId, "━━━━━━━━━━━━━━━━", { reply_markup: MAIN_MENU });
 }
 
-// ─── APPROVE ──────────────────────────────────────────────────
+// ─── USERS LIST ───────────────────────────────────────────────────────────────
+async function sendUsers(chatId: number | string) {
+  if (!db) { await sendMessage(chatId, "⚠️ تعذر الاتصال بقاعدة البيانات"); return; }
+  const { data, count, error } = await db
+    .from("profiles")
+    .select("id, name, email, balance, role, created_at", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (error) { await sendMessage(chatId, `⚠️ خطأ: ${error.message}`); return; }
 
+  const lines = [`👥 <b>المستخدمون (إجمالي: ${count || 0})</b>\n━━━━━━━━━━━━━━━━`];
+  for (const u of (data || [])) {
+    lines.push(
+      `👤 ${u.name || "بدون اسم"}${u.role === "admin" ? " 🛡" : ""}`,
+      `📧 ${u.email || "—"}`,
+      `💰 ${Number(u.balance).toLocaleString()} IQD`,
+      `🆔 <code>${String(u.id).slice(0, 8)}…</code>`,
+      "─────────────",
+    );
+  }
+  if ((count || 0) > 5) lines.push(`… و ${(count || 0) - 5} مستخدم آخر`);
+  await sendMessage(chatId, lines.join("\n"), { reply_markup: MAIN_MENU });
+}
+
+// ─── EDIT NUMBER: send sub-menu ───────────────────────────────────────────────
+async function sendEditNumbersMenu(chatId: number | string) {
+  await sendMessage(chatId, [
+    "⚙️ <b>تعديل أرقام الدفع</b>",
+    "",
+    "اختر طريقة الدفع التي تريد تعديل رقمها:",
+  ].join("\n"), { reply_markup: EDIT_NUMBERS_MENU });
+}
+
+// ─── EDIT NUMBER: prompt after selecting which number ────────────────────────
+async function promptEditNumber(
+  chatId: number | string,
+  fromId: number,
+  key: "zain" | "asiacell" | "qicard",
+) {
+  const labels: Record<string, string> = { zain: "زين كاش", asiacell: "آسياسيل", qicard: "QiCard" };
+  const label = labels[key];
+  userState.set(fromId, { flow: "edit_number", key, label });
+  await sendMessage(chatId, [
+    `📝 <b>تعديل رقم ${label}</b>`,
+    "",
+    "أرسل الرقم الجديد:",
+    "<i>(أو أرسل /cancel للإلغاء)</i>",
+  ].join("\n"));
+}
+
+// ─── EDIT NUMBER: process submitted number ────────────────────────────────────
+async function processEditNumber(
+  chatId: number | string,
+  fromId: number,
+  state: { flow: "edit_number"; key: string; label: string },
+  text: string,
+) {
+  userState.delete(fromId);
+  const newNumber = text.trim();
+
+  if (!newNumber || newNumber.length < 6) {
+    await sendMessage(chatId, "❌ الرقم غير صالح. يجب أن يكون على الأقل 6 أرقام.", { reply_markup: MAIN_MENU });
+    return;
+  }
+
+  if (!db) { await sendMessage(chatId, "⚠️ قاعدة البيانات غير متاحة"); return; }
+
+  const { error } = await db
+    .from("payment_settings")
+    .upsert(
+      { key: state.key, value: newNumber, label: state.label, updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    );
+
+  if (error) {
+    console.error(`[TG] editNumber ${state.key} error:`, error.message);
+    await sendMessage(chatId, `❌ فشل التحديث: ${error.message}`, { reply_markup: MAIN_MENU });
+    return;
+  }
+
+  console.log(`[TG] ✅ Updated ${state.key} → ${newNumber}`);
+  await sendMessage(chatId, [
+    `✅ <b>تم تحديث رقم ${state.label} بنجاح!</b>`,
+    "",
+    `الرقم الجديد: <code>${newNumber}</code>`,
+    "",
+    "سيظهر الرقم الجديد للمستخدمين فوراً 🔄",
+  ].join("\n"), { reply_markup: MAIN_MENU });
+}
+
+// ─── ADD BALANCE: prompt ──────────────────────────────────────────────────────
+async function promptAddBalance(chatId: number | string, fromId: number) {
+  userState.set(fromId, { flow: "add_balance" });
+  await sendMessage(chatId, [
+    "➕ <b>إضافة رصيد يدوياً</b>",
+    "",
+    "أرسل: <code>user_id المبلغ</code>",
+    "",
+    "مثال:",
+    "<code>1d8203d5-a95c-42c8-883d-84920c2e5ab7 5000</code>",
+    "",
+    "<i>أو /cancel للإلغاء</i>",
+  ].join("\n"));
+}
+
+// ─── ADD BALANCE: process ──────────────────────────────────────────────────────
+async function processAddBalance(chatId: number | string, fromId: number, text: string) {
+  userState.delete(fromId);
+  if (!db) { await sendMessage(chatId, "⚠️ قاعدة البيانات غير متاحة"); return; }
+
+  const parts = text.trim().split(/\s+/);
+  if (parts.length < 2) {
+    await sendMessage(chatId, "❌ صيغة خاطئة.\nأرسل: <code>user_id المبلغ</code>", { reply_markup: MAIN_MENU });
+    return;
+  }
+  const userId = parts[0];
+  const amount = Number(parts[1]);
+  if (!userId || isNaN(amount) || amount <= 0) {
+    await sendMessage(chatId, "❌ user_id أو المبلغ غير صحيح.", { reply_markup: MAIN_MENU });
+    return;
+  }
+
+  const { data: profile, error: profErr } = await db
+    .from("profiles")
+    .select("id, name, email, balance")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profErr || !profile) {
+    await sendMessage(chatId, `❌ لم يتم إيجاد مستخدم بهذا ID:\n<code>${userId}</code>`, { reply_markup: MAIN_MENU });
+    return;
+  }
+
+  // Use increment_balance RPC (atomic), fallback to manual update
+  let balanceError: string | null = null;
+  const { error: rpcErr } = await db.rpc("increment_balance", { uid: userId, amount });
+  if (rpcErr) {
+    const newBalance = Number(profile.balance) + amount;
+    const { error: manualErr } = await db.from("profiles").update({ balance: newBalance }).eq("id", userId);
+    if (manualErr) balanceError = manualErr.message;
+  }
+
+  if (balanceError) {
+    await sendMessage(chatId, `❌ فشل تحديث الرصيد: ${balanceError}`, { reply_markup: MAIN_MENU });
+    return;
+  }
+
+  // Notification
+  await db.from("notifications").insert({
+    user_id: userId,
+    title: "💰 تم إضافة رصيد",
+    message: `تم إضافة ${amount.toLocaleString()} IQD إلى حسابك من قِبل الإدارة.`,
+    is_read: false,
+  }).then(r => { if (r.error) console.warn("[TG] addBalance notif:", r.error.message); });
+
+  const newBal = Number(profile.balance) + amount;
+  console.log(`[TG] ✅ Added ${amount} IQD to ${userId}. New balance: ${newBal}`);
+  await sendMessage(chatId, [
+    "✅ <b>تم إضافة الرصيد بنجاح</b>",
+    "",
+    `👤 ${profile.name || profile.email || userId}`,
+    `💰 السابق: <b>${Number(profile.balance).toLocaleString()} IQD</b>`,
+    `➕ المضاف: <b>${amount.toLocaleString()} IQD</b>`,
+    `💳 الجديد: <b>${newBal.toLocaleString()} IQD</b>`,
+  ].join("\n"), { reply_markup: MAIN_MENU });
+}
+
+// ─── APPROVE / REJECT PAYMENT ────────────────────────────────────────────────
 async function approvePayment(paymentId: string, adminName: string): Promise<string> {
-  if (!db) return "❌ قاعدة البيانات غير متاحة\n<code>SUPABASE_SERVICE_ROLE_KEY</code> مطلوب";
+  if (!db) return "❌ قاعدة البيانات غير متاحة";
 
   const { data: payment, error: fetchErr } = await db
     .from("payments")
     .select("id, user_id, amount, status")
     .eq("id", paymentId)
     .maybeSingle();
-
   if (fetchErr || !payment) return `❌ الطلب غير موجود (${paymentId.slice(0, 8)}…)`;
   if (payment.status !== "pending") return `⚠️ الطلب معالَج مسبقاً: ${payment.status}`;
 
-  // Atomic balance increment via RPC (with manual fallback)
-  const { error: rpcErr } = await db.rpc("increment_balance_by_user", {
+  // Fetch profile for fallback balance
+  const { data: profile } = await db.from("profiles").select("balance").eq("id", payment.user_id).maybeSingle();
+
+  // increment_balance RPC (atomic)
+  const { error: rpcErr } = await db.rpc("increment_balance", {
     uid: payment.user_id,
-    amount_input: Number(payment.amount),
+    amount: Number(payment.amount),
   });
   if (rpcErr) {
-    console.warn("[TG] increment RPC failed, using manual fallback:", rpcErr.message);
-    const { data: profile } = await db.from("profiles").select("balance").eq("id", payment.user_id).maybeSingle();
+    // Fallback
     const newBal = Number(profile?.balance || 0) + Number(payment.amount);
     const { error: fallErr } = await db.from("profiles").update({ balance: newBal }).eq("id", payment.user_id);
     if (fallErr) return `❌ فشل تحديث الرصيد: ${fallErr.message}`;
@@ -187,24 +430,16 @@ async function approvePayment(paymentId: string, adminName: string): Promise<str
   const { error: payErr } = await db.from("payments").update({ status: "approved" }).eq("id", paymentId);
   if (payErr) return `❌ فشل تحديث الطلب: ${payErr.message}`;
 
-  // Notify user inside app
-  db.from("notifications").insert({
+  await db.from("notifications").insert({
     user_id: payment.user_id,
-    title:   "✅ تم شحن رصيدك",
+    title: "✅ تم شحن رصيدك",
     message: `تم إضافة ${Number(payment.amount).toLocaleString()} IQD إلى حسابك بنجاح.`,
     is_read: false,
   }).then(r => { if (r.error) console.warn("[TG] approve notif:", r.error.message); });
 
-  console.log(`[TG] ✅ Approved payment ${paymentId.slice(0, 8)} +${payment.amount} IQD → user ${payment.user_id}`);
-  return [
-    "✅ <b>تمت الموافقة</b>",
-    `💰 <b>${Number(payment.amount).toLocaleString()} IQD</b>`,
-    `🆔 <code>${String(paymentId).slice(0, 8)}…</code>`,
-    `👤 ${adminName}`,
-  ].join("\n");
+  console.log(`[TG] ✅ Approved ${paymentId} — +${payment.amount} IQD → ${payment.user_id}`);
+  return `💰 المبلغ المُضاف: <b>${Number(payment.amount).toLocaleString()} IQD</b>\n🆔 رقم الطلب: <code>${String(paymentId).slice(0,8)}…</code>\n👤 بواسطة: ${adminName}`;
 }
-
-// ─── REJECT ───────────────────────────────────────────────────
 
 async function rejectPayment(paymentId: string, adminName: string): Promise<string> {
   if (!db) return "❌ قاعدة البيانات غير متاحة";
@@ -214,31 +449,25 @@ async function rejectPayment(paymentId: string, adminName: string): Promise<stri
     .select("id, user_id, amount, status")
     .eq("id", paymentId)
     .maybeSingle();
-
   if (error || !payment) return `❌ الطلب غير موجود (${paymentId.slice(0, 8)}…)`;
   if (payment.status !== "pending") return `⚠️ الطلب معالَج مسبقاً: ${payment.status}`;
 
   const { error: updErr } = await db.from("payments").update({ status: "rejected" }).eq("id", paymentId);
   if (updErr) return `❌ فشل تحديث الطلب: ${updErr.message}`;
 
-  db.from("notifications").insert({
+  await db.from("notifications").insert({
     user_id: payment.user_id,
-    title:   "❌ تم رفض طلب الشحن",
+    title: "❌ تم رفض طلب الشحن",
     message: `تم رفض طلب شحن بمبلغ ${Number(payment.amount).toLocaleString()} IQD. يرجى التواصل مع الدعم.`,
     is_read: false,
   }).then(r => { if (r.error) console.warn("[TG] reject notif:", r.error.message); });
 
-  console.log(`[TG] ❌ Rejected payment ${paymentId.slice(0, 8)} by ${adminName}`);
-  return [
-    "❌ <b>تم الرفض</b>",
-    `💰 <b>${Number(payment.amount).toLocaleString()} IQD</b>`,
-    `🆔 <code>${String(paymentId).slice(0, 8)}…</code>`,
-    `👤 ${adminName}`,
-  ].join("\n");
+  console.log(`[TG] ❌ Rejected ${paymentId} by ${adminName}`);
+  return `🆔 رقم الطلب: <code>${String(paymentId).slice(0,8)}…</code>\n👤 بواسطة: ${adminName}`;
 }
 
-// ─── SET PAYMENT NUMBERS (/setnumbers command) ─────────────────
-
+// ─── /setnumbers COMMAND ──────────────────────────────────────────────────────
+// Usage: /setnumbers [zain] [asiacell] [qicard]
 async function handleSetNumbers(chatId: number | string, text: string) {
   if (!db) { await sendMessage(chatId, "⚠️ قاعدة البيانات غير متاحة"); return; }
   const parts = text.trim().split(/\s+/).slice(1);
@@ -259,54 +488,301 @@ async function handleSetNumbers(chatId: number | string, text: string) {
     { key: "qicard",   value: qicard,   label: "QiCard"  },
   ];
   const results: string[] = [];
+  let hasError = false;
   for (const u of updates) {
-    const { error } = await db.from("payment_settings").upsert(
-      { ...u, updated_at: new Date().toISOString() },
-      { onConflict: "key" }
-    );
-    results.push(error ? `❌ ${u.label}: ${error.message}` : `✅ ${u.label}: <code>${u.value}</code>`);
+    const { error } = await db
+      .from("payment_settings")
+      .upsert({ ...u, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) {
+      results.push(`❌ ${u.label}: ${error.message}`);
+      hasError = true;
+    } else {
+      results.push(`✅ ${u.label}: <code>${u.value}</code>`);
+    }
   }
-  const allOk = results.every(r => r.startsWith("✅"));
-  await sendMessage(chatId, `${allOk ? "✅ تم تحديث جميع الأرقام:" : "⚠️ بعض التحديثات فشلت:"}\n\n${results.join("\n")}`, { reply_markup: MAIN_MENU });
+  const summary = hasError ? "⚠️ <b>تم التحديث مع بعض الأخطاء</b>" : "✅ <b>تم تحديث جميع أرقام الدفع!</b>";
+  await sendMessage(chatId, [summary, "", ...results, "", "🔄 الأرقام الجديدة مفعّلة فوراً."].join("\n"), { reply_markup: MAIN_MENU });
+  console.log(`[TG] /setnumbers zain=${zain}, asiacell=${asiacell}, qicard=${qicard}`);
 }
 
-// ─── NOTIFY ADMIN (called from payments route) ─────────────────
-
-router.post("/notify-payment", async (req, res) => {
-  if (!BOT_TOKEN || !CHAT_ID) {
-    res.json({ ok: false, reason: "bot not configured" });
+// ─── MESSAGE HANDLER ─────────────────────────────────────────────────────────
+async function handleMessage(chatId: number, fromId: number, fromName: string, text: string) {
+  // Security gate — admin only
+  if (!isAdmin(fromId)) {
+    await sendMessage(chatId, "❌ هذا الأمر مخصص للأدمن فقط.");
+    console.warn(`[TG] ⛔ Unauthorized message from ${fromId} (${fromName})`);
     return;
   }
-  const { user_id, amount, method } = req.body || {};
-  if (!user_id || !amount) { res.status(400).json({ error: "user_id and amount required" }); return; }
+
+  const state = userState.get(fromId);
+
+  // /cancel — abort any flow
+  if (text === "/cancel") {
+    userState.delete(fromId);
+    await sendMessage(chatId, "✖️ تم الإلغاء", { reply_markup: MAIN_MENU });
+    return;
+  }
+
+  // /start or /menu
+  if (text === "/start" || text === "/menu") {
+    userState.delete(fromId);
+    await sendMessage(chatId, `👋 أهلاً <b>${fromName}</b>!\n\n🤖 <b>Perfect Follow — لوحة تحكم البوت</b>\n\nاختر إجراءً:`, { reply_markup: MAIN_MENU });
+    return;
+  }
+
+  // /stats
+  if (text === "/stats") { await sendStats(chatId); return; }
+
+  // /setnumbers
+  if (text.startsWith("/setnumbers")) { await handleSetNumbers(chatId, text); return; }
+
+  // Multi-step flow: edit_number
+  if (state?.flow === "edit_number") {
+    await processEditNumber(chatId, fromId, state, text);
+    return;
+  }
+
+  // Multi-step flow: add_balance
+  if (state?.flow === "add_balance") {
+    await processAddBalance(chatId, fromId, text);
+    return;
+  }
+
+  // Default
+  await sendMessage(chatId, "اختر إجراءً من القائمة:", { reply_markup: MAIN_MENU });
+}
+
+// ─── CALLBACK HANDLER ─────────────────────────────────────────────────────────
+async function handleCallback(
+  callbackId: string,
+  from: { id: number; first_name?: string; username?: string },
+  data: string,
+  message?: { message_id: number; chat: { id: number } }
+) {
+  const chatId   = message?.chat.id ?? from.id;
+  const msgId    = message?.message_id;
+  const fromName = from.first_name || from.username || "المدير";
+
+  // Security gate — admin only
+  if (!isAdmin(from.id)) {
+    await answerCallback(callbackId, "❌ هذا الأمر مخصص للأدمن فقط", true);
+    console.warn(`[TG] ⛔ Unauthorized callback "${data}" from ${from.id}`);
+    return;
+  }
+
+  console.log(`[TG] Callback: "${data}" from ${fromName} (${from.id})`);
+
+  // ── Already processed ──────────────────────────────────────────────────────
+  if (data === "done") {
+    await answerCallback(callbackId, "✅ تمت المعالجة مسبقاً");
+    return;
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────────────────
+  if (data === "stats" || data === "refresh") {
+    await answerCallback(callbackId, "جاري التحميل...");
+    await sendStats(chatId);
+    return;
+  }
+  if (data === "revenue") {
+    await answerCallback(callbackId, "جاري التحميل...");
+    await sendRevenue(chatId);
+    return;
+  }
+  if (data === "payments") {
+    await answerCallback(callbackId, "جاري التحميل...");
+    await sendPaymentsList(chatId);
+    return;
+  }
+  if (data === "users") {
+    await answerCallback(callbackId, "جاري التحميل...");
+    await sendUsers(chatId);
+    return;
+  }
+  if (data === "add_balance") {
+    await answerCallback(callbackId, "");
+    await promptAddBalance(chatId, from.id);
+    return;
+  }
+  if (data === "back_main") {
+    await answerCallback(callbackId, "");
+    await sendMessage(chatId, "اختر إجراءً:", { reply_markup: MAIN_MENU });
+    return;
+  }
+
+  // ── ⚙️ Edit Numbers: show sub-menu ─────────────────────────────────────────
+  if (data === "edit_numbers") {
+    await answerCallback(callbackId, "");
+    await sendEditNumbersMenu(chatId);
+    return;
+  }
+
+  // ── Edit specific number ────────────────────────────────────────────────────
+  if (data === "edit_zain") {
+    await answerCallback(callbackId, "");
+    await promptEditNumber(chatId, from.id, "zain");
+    return;
+  }
+  if (data === "edit_asiacell") {
+    await answerCallback(callbackId, "");
+    await promptEditNumber(chatId, from.id, "asiacell");
+    return;
+  }
+  if (data === "edit_qicard") {
+    await answerCallback(callbackId, "");
+    await promptEditNumber(chatId, from.id, "qicard");
+    return;
+  }
+
+  // ── Approve payment ─────────────────────────────────────────────────────────
+  if (data.startsWith("approve_")) {
+    const paymentId = data.slice("approve_".length);
+    await answerCallback(callbackId, "✅ جاري القبول...");
+    const result = await approvePayment(paymentId, fromName);
+    // Edit the original payment message to show approved status
+    if (msgId) {
+      await editMessage(chatId, msgId,
+        [
+          "✅ <b>تم القبول بنجاح</b>",
+          "",
+          result,
+          "",
+          `🕐 ${new Date().toLocaleString("ar-IQ")}`,
+        ].join("\n"),
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: `✅ تم القبول بواسطة ${fromName}`, callback_data: "done" },
+            ]],
+          },
+        }
+      );
+    }
+    return;
+  }
+
+  // ── Reject payment ──────────────────────────────────────────────────────────
+  if (data.startsWith("reject_")) {
+    const paymentId = data.slice("reject_".length);
+    await answerCallback(callbackId, "❌ جاري الرفض...");
+    const result = await rejectPayment(paymentId, fromName);
+    // Edit the original payment message to show rejected status
+    if (msgId) {
+      await editMessage(chatId, msgId,
+        [
+          "❌ <b>تم الرفض</b>",
+          "",
+          result,
+          "",
+          `🕐 ${new Date().toLocaleString("ar-IQ")}`,
+        ].join("\n"),
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: `❌ تم الرفض بواسطة ${fromName}`, callback_data: "done" },
+            ]],
+          },
+        }
+      );
+    }
+    return;
+  }
+
+  await answerCallback(callbackId, "⚠️ طلب غير معروف");
+}
+
+// ─── POST /api/telegram/webhook ──────────────────────────────────────────────
+router.post("/webhook", async (req, res) => {
+  res.json({ ok: true }); // Always respond 200 immediately
+
+  const update = req.body as TelegramUpdate;
+  console.log("[TG Webhook] Update:", JSON.stringify(update).slice(0, 400));
+
+  try {
+    // ── Handle text messages ────────────────────────────────────────────────
+    if (update.message) {
+      const { from, chat, text } = update.message;
+      if (!from?.id || !chat?.id || !text) return;
+      await handleMessage(chat.id, from.id, from.first_name || from.username || "مستخدم", text);
+      return;
+    }
+
+    // ── Handle button presses ───────────────────────────────────────────────
+    if (update.callback_query) {
+      const { id: cbId, from, data, message } = update.callback_query;
+      if (!from?.id || !data) return;
+      await handleCallback(cbId, from, data, message);
+      return;
+    }
+
+  } catch (err) {
+    console.error("[TG Webhook] Unhandled error:", err);
+    if (ADMIN_ID) {
+      await sendMessage(ADMIN_ID, `⚠️ خطأ:\n<code>${err instanceof Error ? err.message : String(err)}</code>`).catch(() => {});
+    }
+  }
+});
+
+// ─── POST /api/telegram/payment-notify ───────────────────────────────────────
+// Called by frontend when a user submits a payment request
+router.post("/payment-notify", async (req, res) => {
+  const { id, email, amount, method, transaction_id, proof_url, notes } = req.body as {
+    id: string; email: string; amount: number; method: string;
+    transaction_id?: string; proof_url?: string; notes?: string;
+  };
+  console.log("[TG] Payment notify:", { id, email, amount, method });
 
   const methodLabel: Record<string, string> = {
     zaincash: "زين كاش 💳", asiacell: "آسياسيل 📱", qicard: "QiCard 💰", manual: "يدوي 🏦",
   };
-
   const text = [
-    "💰 <b>طلب شحن جديد</b>",
+    "🚀 <b>طلب شحن جديد!</b>",
     "",
-    `👤 User ID: <code>${user_id}</code>`,
-    `💵 Amount: <b>${Number(amount).toLocaleString()} IQD</b>`,
-    `💳 Method: ${methodLabel[method] || method || "غير محدد"}`,
+    `👤 <b>المستخدم:</b> ${email}`,
+    `💰 <b>المبلغ:</b> <code>${Number(amount).toLocaleString()} IQD</code>`,
+    `💳 <b>الطريقة:</b> ${methodLabel[method] || method}`,
+    transaction_id ? `🔢 <b>TXID:</b> <code>${transaction_id}</code>` : null,
+    proof_url ? `📸 <b>إثبات:</b> <a href="${proof_url}">عرض الصورة</a>` : null,
+    notes ? `📝 <b>ملاحظات:</b> ${notes}` : null,
     "",
+    `🆔 <code>${String(id).slice(0, 8)}…</code>`,
     `⏱ ${new Date().toLocaleString("ar-IQ")}`,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 
-  await tgRequest("sendMessage", {
-    chat_id: CHAT_ID,
-    text,
-    parse_mode: "HTML",
-    reply_markup: { inline_keyboard: [[
-      { text: "📥 عرض الطلبات المعلقة", callback_data: "pending_payments" },
-    ]] },
-  });
+  const markup = {
+    inline_keyboard: [[
+      { text: "✅ قبول",   callback_data: `approve_${id}` },
+      { text: "❌ رفض",    callback_data: `reject_${id}`  },
+    ]],
+  };
+
+  const notifChat = CHAT_ID || String(ADMIN_ID);
+  if (notifChat) await sendMessage(notifChat, text, { reply_markup: markup });
+
   res.json({ ok: true });
 });
 
-// ─── WEBHOOK SETUP ────────────────────────────────────────────
+// ─── POST /api/telegram/payment-approved ─────────────────────────────────────
+router.post("/payment-approved", async (req, res) => {
+  const { email, amount } = req.body as { email: string; amount: number };
+  const notifChat = CHAT_ID || String(ADMIN_ID);
+  if (notifChat) {
+    await sendMessage(notifChat, `✅ <b>تم قبول شحن</b>\n👤 ${email}\n💰 ${Number(amount).toLocaleString()} IQD`);
+  }
+  res.json({ ok: true });
+});
 
+// ─── POST /api/telegram/payment-rejected ─────────────────────────────────────
+router.post("/payment-rejected", async (req, res) => {
+  const { email, amount } = req.body as { email: string; amount: number };
+  const notifChat = CHAT_ID || String(ADMIN_ID);
+  if (notifChat) {
+    await sendMessage(notifChat, `❌ <b>تم رفض شحن</b>\n👤 ${email}\n💰 ${Number(amount).toLocaleString()} IQD`);
+  }
+  res.json({ ok: true });
+});
+
+// ─── POST /api/telegram/setup-webhook ────────────────────────────────────────
 router.post("/setup-webhook", async (req, res) => {
   if (!BOT_TOKEN) { res.status(400).json({ error: "TELEGRAM_BOT_TOKEN not set" }); return; }
   const host = req.headers.host || req.body?.host;
@@ -325,6 +801,7 @@ router.post("/setup-webhook", async (req, res) => {
   }
 });
 
+// ─── GET /api/telegram/webhook-info ──────────────────────────────────────────
 router.get("/webhook-info", async (_req, res) => {
   if (!BOT_TOKEN) { res.status(400).json({ error: "TELEGRAM_BOT_TOKEN not set" }); return; }
   try {
@@ -336,8 +813,7 @@ router.get("/webhook-info", async (_req, res) => {
   }
 });
 
-// ─── TYPES ────────────────────────────────────────────────────
-
+// ─── TYPES ────────────────────────────────────────────────────────────────────
 type TelegramUpdate = {
   update_id: number;
   message?: {
@@ -353,178 +829,5 @@ type TelegramUpdate = {
     data?: string;
   };
 };
-
-// ─── MAIN WEBHOOK ─────────────────────────────────────────────
-
-router.post("/webhook", (req, res) => {
-  // Always reply 200 immediately — Telegram will retry if we don't
-  res.json({ ok: true });
-
-  // Validate body
-  const update = req.body as TelegramUpdate;
-  if (!update || typeof update !== "object") {
-    console.warn("[TG] Empty or invalid webhook body");
-    return;
-  }
-
-  console.log(`[TG] Update #${update.update_id} — ${update.callback_query ? "callback_query" : update.message ? "message" : "unknown"}`);
-
-  // Process asynchronously — errors must never bubble up after 200 is sent
-  handleUpdate(update).catch(err => {
-    console.error("[TG] Unhandled error in handleUpdate:", err);
-  });
-});
-
-async function handleUpdate(update: TelegramUpdate) {
-  // ── CALLBACK QUERY (button press) ──────────────────────────
-  if (update.callback_query) {
-    const cb        = update.callback_query;
-    const from      = cb.from;
-    const chatId    = cb.message?.chat.id ?? from.id;
-    const msgId     = cb.message?.message_id ?? 0;
-    const data      = cb.data ?? "";
-    const adminName = from.first_name || from.username || String(from.id);
-
-    console.log(`[TG] callback_query from ${from.id} (${adminName}): "${data}"`);
-
-    if (!isAdmin(from.id)) {
-      await answerCallback(cb.id, "❌ غير مصرح لك", true);
-      return;
-    }
-
-    await answerCallback(cb.id, ""); // acknowledge immediately
-
-    if (data === "pending_payments") {
-      await sendPaymentsList(chatId);
-      return;
-    }
-
-    if (data === "payment_numbers") {
-      await sendMessage(chatId, "⚙️ <b>أرقام الدفع</b>\n\nاختر الرقم الذي تريد تعديله:", { reply_markup: EDIT_NUMBERS_MENU });
-      return;
-    }
-
-    if (data === "back_main") {
-      await sendMessage(chatId, "🏠 القائمة الرئيسية:", { reply_markup: MAIN_MENU });
-      return;
-    }
-
-    if (data === "edit_zain" || data === "edit_asiacell" || data === "edit_qicard") {
-      const keyMap   = { edit_zain: "zain", edit_asiacell: "asiacell", edit_qicard: "qicard" } as const;
-      const labelMap = { edit_zain: "زين كاش", edit_asiacell: "آسياسيل", edit_qicard: "QiCard" };
-      const key      = keyMap[data as keyof typeof keyMap];
-      const label    = labelMap[data as keyof typeof labelMap];
-      userState.set(from.id, { flow: "edit_number", key, label });
-      await sendMessage(chatId, `✏️ أدخل الرقم الجديد لـ <b>${label}</b>:\n\n<i>مثال: 07881457896</i>`);
-      return;
-    }
-
-    if (data.startsWith("approve_")) {
-      const paymentId = data.slice("approve_".length);
-      const result    = await approvePayment(paymentId, adminName);
-      if (msgId) {
-        await editMessage(chatId, msgId, result, {
-          reply_markup: { inline_keyboard: [[{ text: "✅ تمت الموافقة", callback_data: "noop" }]] },
-        });
-      } else {
-        await sendMessage(chatId, result, { reply_markup: MAIN_MENU });
-      }
-      return;
-    }
-
-    if (data.startsWith("reject_")) {
-      const paymentId = data.slice("reject_".length);
-      const result    = await rejectPayment(paymentId, adminName);
-      if (msgId) {
-        await editMessage(chatId, msgId, result, {
-          reply_markup: { inline_keyboard: [[{ text: "❌ تم الرفض", callback_data: "noop" }]] },
-        });
-      } else {
-        await sendMessage(chatId, result, { reply_markup: MAIN_MENU });
-      }
-      return;
-    }
-
-    // noop / unknown button — already answered above
-    return;
-  }
-
-  // ── MESSAGE ────────────────────────────────────────────────
-  if (update.message) {
-    const msg    = update.message;
-    const from   = msg.from;
-    const chatId = msg.chat.id;
-    const text   = (msg.text || "").trim();
-
-    if (!from) return;
-
-    console.log(`[TG] message from ${from.id}: "${text}"`);
-
-    if (!isAdmin(from.id)) {
-      // silently ignore non-admin messages
-      return;
-    }
-
-    // ── Pending text-input flow (edit payment number) ────────
-    const state = userState.get(from.id);
-    if (state?.flow === "edit_number") {
-      userState.delete(from.id);
-      const value = text.trim();
-      if (!value || !/^[\d\w]+$/.test(value)) {
-        await sendMessage(chatId, "❌ رقم غير صالح. يرجى إدخال أرقام وأحرف فقط.", { reply_markup: EDIT_NUMBERS_MENU });
-        return;
-      }
-      if (!db) { await sendMessage(chatId, "⚠️ قاعدة البيانات غير متاحة"); return; }
-      const { error } = await db.from("payment_settings").upsert(
-        { key: state.key, value, label: state.label, updated_at: new Date().toISOString() },
-        { onConflict: "key" }
-      );
-      if (error) {
-        await sendMessage(chatId, `❌ فشل التحديث: ${error.message}`, { reply_markup: EDIT_NUMBERS_MENU });
-      } else {
-        await sendMessage(chatId, `✅ تم تحديث رقم <b>${state.label}</b>:\n<code>${value}</code>`, { reply_markup: MAIN_MENU });
-      }
-      return;
-    }
-
-    // ── Commands ──────────────────────────────────────────────
-    if (text === "/start" || text === "/menu") {
-      await sendMessage(chatId, [
-        "🤖 <b>Boost Iraq — لوحة تحكم الأدمن</b>",
-        "",
-        "✅ البوت يعمل بشكل صحيح",
-        "",
-        "اختر من القائمة:",
-      ].join("\n"), { reply_markup: MAIN_MENU });
-      return;
-    }
-
-    if (text === "/payments") {
-      await sendPaymentsList(chatId);
-      return;
-    }
-
-    if (text.startsWith("/setnumbers")) {
-      await handleSetNumbers(chatId, text);
-      return;
-    }
-
-    if (text === "/status") {
-      const dbStatus = db ? "✅ متصل" : "❌ غير متصل";
-      const tokenStatus = BOT_TOKEN ? "✅ مضبوط" : "❌ مفقود";
-      await sendMessage(chatId, [
-        "🔧 <b>حالة النظام</b>",
-        "",
-        `🤖 Bot Token: ${tokenStatus}`,
-        `🗄  Supabase: ${dbStatus}`,
-        `👤 Admin ID: <code>${ADMIN_ID || "غير مضبوط"}</code>`,
-      ].join("\n"), { reply_markup: MAIN_MENU });
-      return;
-    }
-
-    // Unknown message — show menu
-    await sendMessage(chatId, "اختر من القائمة:", { reply_markup: MAIN_MENU });
-  }
-}
 
 export default router;
