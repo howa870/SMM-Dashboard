@@ -26,40 +26,38 @@ export function Register() {
     setIsPending(true);
 
     try {
-      // ── Step 1: Try server-side register first (bypasses email confirmation) ──
+      // ── Step 1: Server-side register via /api/auth/register (Vercel serverless) ──
       const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
       let serverRegisterOk = false;
 
-      if (apiBase) {
-        try {
-          const res  = await fetch(`${apiBase}/api/auth/supabase-register`, {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ name, email, password }),
-          });
-          const json = await res.json().catch(() => ({})) as { error?: string };
+      try {
+        const res  = await fetch(`${apiBase}/api/auth/register`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ name, email, password }),
+        });
+        const json = await res.json().catch(() => ({})) as { error?: string };
 
-          if (!res.ok) {
-            const msg: string = json.error ?? "يرجى المحاولة مرة أخرى";
-            console.error("[Register] server-register error:", msg);
+        if (!res.ok) {
+          const msg: string = json.error ?? "يرجى المحاولة مرة أخرى";
+          console.error("[Register] server-register error:", msg);
 
-            if (
-              msg.includes("already registered") ||
-              msg.includes("مسجّل مسبقاً") ||
-              msg.includes("already been registered")
-            ) {
-              toast({ variant: "destructive", title: "البريد مستخدم", description: "هذا البريد الإلكتروني مسجّل مسبقاً — جرّب تسجيل الدخول" });
-              return;
-            }
-
-            // API returned a specific error — fall through to Supabase direct signUp
-            console.warn("[Register] Falling back to direct supabase.auth.signUp()");
-          } else {
-            serverRegisterOk = true;
+          if (
+            msg.includes("already registered") ||
+            msg.includes("مسجّل مسبقاً") ||
+            msg.includes("already been registered")
+          ) {
+            toast({ variant: "destructive", title: "البريد مستخدم", description: "هذا البريد الإلكتروني مسجّل مسبقاً — جرّب تسجيل الدخول" });
+            return;
           }
-        } catch (apiErr) {
-          console.warn("[Register] API server unreachable, using direct signUp:", apiErr instanceof Error ? apiErr.message : apiErr);
+
+          // API returned a specific error — fall through to Supabase direct signUp
+          console.warn("[Register] Falling back to direct supabase.auth.signUp()");
+        } else {
+          serverRegisterOk = true;
         }
+      } catch (apiErr) {
+        console.warn("[Register] API server unreachable, using direct signUp:", apiErr instanceof Error ? apiErr.message : apiErr);
       }
 
       // ── Step 2: If server didn't handle it, use Supabase directly ──

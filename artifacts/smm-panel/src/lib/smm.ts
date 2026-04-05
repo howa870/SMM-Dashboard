@@ -1,7 +1,9 @@
-// ─── Frontend Followiz API client ─────────────────────────────────────────────
-// All calls go to OUR backend — the API key is NEVER exposed here
+// ─── Frontend SMM API client ───────────────────────────────────────────────────
+// All calls go to our Vercel serverless /api/* functions.
+// On Vercel:    VITE_API_URL is empty → paths are relative (/api/services)
+// On local dev: VITE_API_URL=http://localhost:3000 → http://localhost:3000/api/services
 
-const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "") + "/api/smm";
+const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
 export type FollowizService = {
   service: number;
@@ -15,16 +17,16 @@ export type FollowizService = {
   cancel?: boolean;
 };
 
-// Fetch Followiz services via our backend (cached 5 min server-side)
+// ─── GET /api/services ────────────────────────────────────────────────────────
 export async function getFollowizServices(): Promise<FollowizService[]> {
-  const res = await fetch(`${BASE}/services`);
+  const res = await fetch(`${BASE}/api/services`);
   if (!res.ok) throw new Error("تعذر تحميل الخدمات");
   const json = await res.json() as { ok: boolean; data: FollowizService[]; error?: string };
   if (!json.ok) throw new Error(json.error || "خطأ في تحميل الخدمات");
   return json.data;
 }
 
-// Place an order via our backend (requires auth token)
+// ─── POST /api/order ──────────────────────────────────────────────────────────
 export async function createFollowizOrder(params: {
   provider_service_id: number;
   link: string;
@@ -32,7 +34,7 @@ export async function createFollowizOrder(params: {
   price_per_1000: number;
   token: string;
 }): Promise<{ ok: boolean; order: unknown; followiz_order_id: string }> {
-  const res = await fetch(`${BASE}/orders`, {
+  const res = await fetch(`${BASE}/api/order`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -40,12 +42,24 @@ export async function createFollowizOrder(params: {
     },
     body: JSON.stringify({
       provider_service_id: params.provider_service_id,
-      link: params.link,
-      quantity: params.quantity,
-      price_per_1000: params.price_per_1000,
+      service:             params.provider_service_id,
+      link:                params.link,
+      quantity:            params.quantity,
+      price_per_1000:      params.price_per_1000,
     }),
   });
   const json = await res.json() as { ok: boolean; order: unknown; followiz_order_id: string; error?: string };
   if (!res.ok || !json.ok) throw new Error(json.error || "فشل إنشاء الطلب");
   return json;
+}
+
+// ─── GET /api/balance ─────────────────────────────────────────────────────────
+export async function getBalance(token: string): Promise<number> {
+  const res = await fetch(`${BASE}/api/balance`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("تعذر جلب الرصيد");
+  const json = await res.json() as { ok: boolean; balance: number; error?: string };
+  if (!json.ok) throw new Error(json.error || "خطأ في جلب الرصيد");
+  return json.balance;
 }

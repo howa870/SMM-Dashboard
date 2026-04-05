@@ -5,14 +5,13 @@
   "framework": null,
   "build": {
     "env": {
-      "PORT": "3000",
       "BASE_PATH": "/",
       "NODE_ENV": "production",
-      "VITE_API_URL": "https://smm-dashboard-api-server-kmqi.vercel.app"
+      "VITE_API_URL": ""
     }
   },
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api(?:/|$)).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
