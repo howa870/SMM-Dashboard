@@ -1,16 +1,21 @@
 -- ════════════════════════════════════════════════════════════════════
--- Boost Iraq — Supabase Setup SQL  (v2 — حل infinite recursion)
--- انسخ هذا الكود والصقه في Supabase Dashboard → SQL Editor → Run
+--  Boost Iraq — Supabase Setup SQL  (v3 — نسخة شاملة ومحسّنة)
+--  انسخ هذا الكود والصقه في:
+--    Supabase Dashboard → SQL Editor → New Query → Run
 -- ════════════════════════════════════════════════════════════════════
 
--- ── حذف جميع policies القديمة دفعةً واحدة ───────────────────────
+-- ── 0. حذف جميع Policies القديمة لتجنب التعارض ───────────────────
 DO $$
 DECLARE r RECORD;
 BEGIN
   FOR r IN (
     SELECT schemaname, tablename, policyname
     FROM pg_policies
-    WHERE tablename IN ('profiles','orders','services','payments','notifications','payment_settings')
+    WHERE schemaname = 'public'
+      AND tablename IN (
+        'profiles','orders','services',
+        'payments','notifications','payment_settings'
+      )
   ) LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I',
       r.policyname, r.schemaname, r.tablename);
@@ -24,30 +29,35 @@ CREATE TABLE IF NOT EXISTS profiles (
   id         uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email      text,
   name       text,
-  balance    numeric DEFAULT 0,
-  role       text DEFAULT 'user',
-  created_at timestamp DEFAULT now()
+  balance    numeric NOT NULL DEFAULT 0,
+  role       text NOT NULL DEFAULT 'user',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
+
+-- أعمدة إضافية (آمن إن وجدت)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS role       text NOT NULL DEFAULT 'user';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- ⚡ (select auth.uid()) بدلاً من auth.uid() — يمنع infinite recursion
+-- ⚡ (SELECT auth.uid()) يمنع infinite recursion بشكل مضمون
 CREATE POLICY "profiles_select_own"
   ON profiles FOR SELECT
-  USING ((select auth.uid()) = id);
+  USING ((SELECT auth.uid()) = id);
 
 CREATE POLICY "profiles_insert_own"
   ON profiles FOR INSERT
-  WITH CHECK ((select auth.uid()) = id);
+  WITH CHECK ((SELECT auth.uid()) = id);
 
 CREATE POLICY "profiles_update_own"
   ON profiles FOR UPDATE
-  USING ((select auth.uid()) = id)
-  WITH CHECK ((select auth.uid()) = id);
+  USING     ((SELECT auth.uid()) = id)
+  WITH CHECK ((SELECT auth.uid()) = id);
 
 CREATE POLICY "profiles_delete_own"
   ON profiles FOR DELETE
-  USING ((select auth.uid()) = id);
+  USING ((SELECT auth.uid()) = id);
 
 -- ════════════════════════════════════════════════════════════════════
 -- 2. ORDERS
@@ -61,21 +71,21 @@ CREATE TABLE IF NOT EXISTS orders (
   quantity            integer NOT NULL,
   total_price         numeric DEFAULT 0,
   status              text DEFAULT 'pending',
-  created_at          timestamp DEFAULT now()
+  created_at          timestamptz DEFAULT now()
 );
 
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "orders_select_own"
   ON orders FOR SELECT
-  USING ((select auth.uid()) = user_id);
+  USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "orders_insert_own"
   ON orders FOR INSERT
-  WITH CHECK ((select auth.uid()) = user_id);
+  WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- ════════════════════════════════════════════════════════════════════
--- 3. SERVICES
+-- 3. SERVICES — قراءة عامة (لا يحتاج تسجيل دخول)
 -- ════════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS services (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -90,9 +100,13 @@ CREATE TABLE IF NOT EXISTS services (
   provider            text DEFAULT 'followiz',
   provider_service_id text UNIQUE,
   status              text DEFAULT 'active',
-  created_at          timestamp DEFAULT now(),
-  updated_at          timestamp DEFAULT now()
+  created_at          timestamptz DEFAULT now(),
+  updated_at          timestamptz DEFAULT now()
 );
+
+ALTER TABLE services ADD COLUMN IF NOT EXISTS service_type text;
+ALTER TABLE services ADD COLUMN IF NOT EXISTS platform_id  integer;
+ALTER TABLE services ADD COLUMN IF NOT EXISTS updated_at   timestamptz DEFAULT now();
 
 ALTER TABLE services ENABLE ROW LEVEL SECURITY;
 
@@ -101,7 +115,7 @@ CREATE POLICY "services_public_read"
   USING (true);
 
 -- ════════════════════════════════════════════════════════════════════
--- 4. PAYMENTS — يُدار بالكامل عبر service role (API serverless)
+-- 4. PAYMENTS — يُدار عبر service role فقط (API/Bot)
 -- ════════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS payments (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -111,28 +125,36 @@ CREATE TABLE IF NOT EXISTS payments (
   transaction_id text,
   proof_url      text,
   notes          text,
-  status         text NOT NULL DEFAULT 'pending',
-  created_at     timestamp DEFAULT now()
+  status         text NOT NULL DEFAULT 'pending'
+                   CHECK (status IN ('pending','approved','rejected')),
+  created_at     timestamptz DEFAULT now(),
+  updated_at     timestamptz DEFAULT now()
 );
+
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
--- المستخدم يقرأ مدفوعاته فقط
+-- المستخدم يرى طلباته فقط
 CREATE POLICY "payments_select_own"
   ON payments FOR SELECT
-  USING ((select auth.uid()) = user_id);
+  USING ((SELECT auth.uid()) = user_id);
 
--- الـ INSERT والـ UPDATE عبر service role فقط — لا policy للمستخدم
+-- INSERT والـ UPDATE عبر service role فقط — لا policy للمستخدم
 
 -- ════════════════════════════════════════════════════════════════════
--- 5. PAYMENT_SETTINGS
+-- 5. PAYMENT_SETTINGS — أرقام الدفع (زين/آسياسيل/QiCard)
 -- ════════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS payment_settings (
   id         serial PRIMARY KEY,
   key        text UNIQUE NOT NULL,
   value      text NOT NULL DEFAULT '',
-  updated_at timestamp DEFAULT now()
+  label      text,
+  updated_at timestamptz DEFAULT now()
 );
+
+ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS label      text;
+ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
 ALTER TABLE payment_settings ENABLE ROW LEVEL SECURITY;
 
@@ -140,36 +162,36 @@ CREATE POLICY "payment_settings_public_read"
   ON payment_settings FOR SELECT
   USING (true);
 
-INSERT INTO payment_settings (key, value) VALUES
-  ('zaincash_number', '07XX XXX XXXX'),
-  ('asiacell_number', '07XX XXX XXXX'),
-  ('qicard_number',   '07XX XXX XXXX')
+INSERT INTO payment_settings (key, value, label) VALUES
+  ('zaincash_number',  '', 'زين كاش'),
+  ('asiacell_number',  '', 'آسياسيل'),
+  ('qicard_number',    '', 'QiCard')
 ON CONFLICT (key) DO NOTHING;
 
 -- ════════════════════════════════════════════════════════════════════
--- 6. NOTIFICATIONS
+-- 6. NOTIFICATIONS — إشعارات داخل التطبيق
 -- ════════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS notifications (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id    uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title      text NOT NULL,
   message    text,
   is_read    boolean DEFAULT false,
-  created_at timestamp DEFAULT now()
+  created_at timestamptz DEFAULT now()
 );
 
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "notifications_select_own"
   ON notifications FOR SELECT
-  USING ((select auth.uid()) = user_id);
+  USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "notifications_update_own"
   ON notifications FOR UPDATE
-  USING ((select auth.uid()) = user_id);
+  USING ((SELECT auth.uid()) = user_id);
 
 -- ════════════════════════════════════════════════════════════════════
--- 7. STORAGE — bucket لصور إثبات الدفع
+-- 7. STORAGE — رفع صور الإثبات (payment-proofs)
 -- ════════════════════════════════════════════════════════════════════
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('payment-proofs', 'payment-proofs', true)
@@ -177,57 +199,134 @@ ON CONFLICT (id) DO NOTHING;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE tablename = 'objects' AND policyname = 'payment_proofs_upload'
-  ) THEN
-    CREATE POLICY "payment_proofs_upload"
-      ON storage.objects FOR INSERT
-      WITH CHECK (bucket_id = 'payment-proofs' AND (select auth.uid()) IS NOT NULL);
+  DROP POLICY IF EXISTS "payment_proofs_upload" ON storage.objects;
+  DROP POLICY IF EXISTS "payment_proofs_read"   ON storage.objects;
 
-    CREATE POLICY "payment_proofs_read"
-      ON storage.objects FOR SELECT
-      USING (bucket_id = 'payment-proofs');
-  END IF;
+  CREATE POLICY "payment_proofs_upload"
+    ON storage.objects FOR INSERT
+    WITH CHECK (
+      bucket_id = 'payment-proofs'
+      AND (SELECT auth.uid()) IS NOT NULL
+    );
+
+  CREATE POLICY "payment_proofs_read"
+    ON storage.objects FOR SELECT
+    USING (bucket_id = 'payment-proofs');
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════
--- 8. TRIGGER — إنشاء profile تلقائياً عند التسجيل
+-- 8. RPC: increment_balance — تحديث الرصيد ذري (Atomic)
+--    يُستخدم من الخادم فقط (SECURITY DEFINER)
+-- ════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.increment_balance(uid uuid, amount numeric)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE profiles
+  SET    balance    = balance + amount,
+         updated_at = now()
+  WHERE  id = uid;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.decrement_balance(uid uuid, amount numeric)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE profiles
+  SET    balance    = GREATEST(0, balance - amount),
+         updated_at = now()
+  WHERE  id = uid;
+END;
+$$;
+
+-- ════════════════════════════════════════════════════════════════════
+-- 9. TRIGGER — إنشاء Profile تلقائياً عند التسجيل
 -- ════════════════════════════════════════════════════════════════════
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, name)
+  INSERT INTO public.profiles (id, email, name, balance, role)
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'name', NEW.email)
+    COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+    0,
+    'user'
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ════════════════════════════════════════════════════════════════════
--- أعمدة إضافية (آمن للتشغيل على قاعدة موجودة)
+-- 10. TRIGGER — updated_at تلقائي
 -- ════════════════════════════════════════════════════════════════════
-ALTER TABLE services  ADD COLUMN IF NOT EXISTS service_type text;
-ALTER TABLE services  ADD COLUMN IF NOT EXISTS platform_id  integer;
-ALTER TABLE profiles  ADD COLUMN IF NOT EXISTS role         text DEFAULT 'user';
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS profiles_updated_at ON profiles;
+DROP TRIGGER IF EXISTS payments_updated_at ON payments;
+
+CREATE TRIGGER profiles_updated_at
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TRIGGER payments_updated_at
+  BEFORE UPDATE ON payments
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- ════════════════════════════════════════════════════════════════════
--- ✅ تم! أضف هذه env vars في Vercel → Settings → Environment Variables:
+-- 11. Backfill — تأكيد وجود Profile لجميع المستخدمين الحاليين
+-- ════════════════════════════════════════════════════════════════════
+INSERT INTO public.profiles (id, email, name, balance, role)
+SELECT
+  au.id,
+  au.email,
+  COALESCE(au.raw_user_meta_data->>'name', split_part(au.email, '@', 1)),
+  0,
+  'user'
+FROM auth.users au
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.profiles p WHERE p.id = au.id
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- ════════════════════════════════════════════════════════════════════
+-- ✅ اكتمل الإعداد!
 --
--- VITE_SUPABASE_URL         = رابط مشروعك  (https://xxx.supabase.co)
--- VITE_SUPABASE_ANON_KEY    = مفتاح anon (عام)
--- SUPABASE_SERVICE_ROLE_KEY = مفتاح service role (سري — لا تنشره)
--- FOLLOWIZ_KEY              = 7df9c35df34ad299ded4d7e2177cc6cc
--- TELEGRAM_BOT_TOKEN        = توكن البوت
--- TELEGRAM_ADMIN_ID         = 6460074022
+-- متغيرات Vercel المطلوبة (Settings → Environment Variables):
+--
+--   VITE_SUPABASE_URL          https://xxxx.supabase.co
+--   VITE_SUPABASE_ANON_KEY     eyJhb...  (مفتاح anon، عام)
+--   SUPABASE_SERVICE_ROLE_KEY  eyJhb...  (سري — لا تنشره أبداً)
+--   FOLLOWIZ_KEY               7df9c35df34ad299ded4d7e2177cc6cc
+--   TELEGRAM_BOT_TOKEN         123456:ABCdef...
+--   TELEGRAM_ADMIN_ID          6460074022
+--
+-- تسجيل Webhook للبوت (مرة واحدة بعد النشر على Vercel):
+--   curl "https://api.telegram.org/bot{TOKEN}/setWebhook?url=https://YOUR_DOMAIN/api/telegram"
 -- ════════════════════════════════════════════════════════════════════

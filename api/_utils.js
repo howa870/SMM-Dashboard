@@ -116,6 +116,24 @@ export async function followizCall(params) {
   catch { throw new Error(`Followiz bad JSON: ${text.slice(0, 200)}`); }
 }
 
+/** COUNT rows in a table (service role) — uses Prefer: count=exact header */
+export async function sbCount(table, params = "") {
+  if (!SUPABASE_URL || !SERVICE_KEY) return 0;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}&select=id`, {
+      headers: {
+        apikey:        SERVICE_KEY,
+        Authorization: `Bearer ${SERVICE_KEY}`,
+        Prefer:        "count=exact",
+        "Range-Unit":  "items",
+        Range:         "0-0",
+      },
+    });
+    const cr = res.headers.get("content-range") || "0-0/0";
+    return parseInt(cr.split("/")[1] ?? "0", 10) || 0;
+  } catch { return 0; }
+}
+
 // ─── Telegram notification ───────────────────────────────────────────────────
 export async function sendTelegram(chatId, text) {
   if (!TELEGRAM_TOKEN || !chatId) return;
