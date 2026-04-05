@@ -65,37 +65,94 @@
 }
 
 :root {
-  /* Tailwind HSL design tokens — dark palette */
+  /* Tailwind HSL tokens — Light palette */
+  --background: 210 40% 98%;
+  --foreground: 222 84% 5%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 84% 5%;
+  --card-border: 214 32% 91%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 84% 5%;
+  --popover-border: 214 32% 91%;
+  --primary: 239 84% 67%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 192 91% 43%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 239 84% 67%;
+  --sidebar: 210 40% 98%;
+  --sidebar-foreground: 222 84% 5%;
+  --sidebar-border: 214 32% 91%;
+  --sidebar-primary: 239 84% 67%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 210 40% 96%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-ring: 239 84% 67%;
+  --chart-1: 239 84% 67%;
+  --chart-2: 192 91% 43%;
+  --chart-3: 142 76% 36%;
+  --chart-4: 38 92% 50%;
+  --chart-5: 0 72% 51%;
+  --app-font-sans: 'Cairo', 'Tajawal', sans-serif;
+  --app-font-serif: Georgia, serif;
+  --app-font-mono: Menlo, monospace;
+  --radius: 1.25rem;
+
+  /* ── Semantic readability vars — Light mode ── */
+  --bg:           #ffffff;
+  --card-bg:      #f9fafb;
+  --text:         #0f172a;
+  --text-strong:  #020617;
+  --text-muted:   #475569;
+  --border-color: #e2e8f0;
+
+  /* ── Legacy --theme-* aliased to semantic vars ── */
+  --theme-bg:          var(--bg);
+  --theme-text:        var(--text);
+  --theme-text-muted:  var(--text-muted);
+  --theme-text-faint:  #6b7280;
+  --theme-card:        var(--card-bg);
+  --theme-card-solid:  #f9fafb;
+  --theme-border:      var(--border-color);
+  --theme-primary:     #4f46e5;
+  --theme-glow-a:      rgba(99,102,241,0.10);
+  --theme-glow-b:      rgba(34,211,238,0.07);
+  --theme-surface:     rgba(249,250,251,0.98);
+  --theme-input-bg:    #ffffff;
+  --theme-shadow:      rgba(0,0,0,0.10);
+}
+
+/* ── Dark mode overrides ─────────────────────────────────────────── */
+.dark {
+  /* Tailwind HSL tokens — Dark palette */
   --background: 215 71% 11%;
   --foreground: 210 36% 90%;
-
   --card: 217 35% 17%;
   --card-foreground: 210 36% 90%;
   --card-border: 217 35% 23%;
-
   --popover: 217 35% 14%;
   --popover-foreground: 210 36% 90%;
   --popover-border: 217 35% 22%;
-
   --primary: 239 84% 67%;
   --primary-foreground: 0 0% 100%;
-
   --secondary: 217 35% 22%;
   --secondary-foreground: 210 36% 90%;
-
   --muted: 217 35% 19%;
   --muted-foreground: 215 20% 52%;
-
   --accent: 192 91% 43%;
   --accent-foreground: 0 0% 100%;
-
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
-
   --border: 217 35% 23%;
   --input: 217 35% 20%;
   --ring: 239 84% 67%;
-
   --sidebar: 215 71% 9%;
   --sidebar-foreground: 210 36% 90%;
   --sidebar-border: 217 35% 19%;
@@ -105,25 +162,22 @@
   --sidebar-accent-foreground: 210 36% 90%;
   --sidebar-ring: 239 84% 67%;
 
-  --chart-1: 239 84% 67%;
-  --chart-2: 192 91% 43%;
-  --chart-3: 142 76% 36%;
-  --chart-4: 38 92% 50%;
-  --chart-5: 0 72% 51%;
+  /* ── Semantic readability vars — Dark mode ── */
+  --bg:           #020617;
+  --card-bg:      #0f172a;
+  --text:         #e2e8f0;
+  --text-strong:  #ffffff;
+  --text-muted:   #94a3b8;
+  --border-color: #1e293b;
 
-  --app-font-sans: 'Cairo', 'Tajawal', sans-serif;
-  --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
-  --radius: 1.25rem;
-
-  /* ── Custom semantic vars — dark palette (permanent) ── */
-  --theme-bg:          #020617;
-  --theme-text:        #f1f5f9;
-  --theme-text-muted:  #94a3b8;
+  /* ── Legacy --theme-* aliased to semantic vars ── */
+  --theme-bg:          var(--bg);
+  --theme-text:        var(--text);
+  --theme-text-muted:  var(--text-muted);
   --theme-text-faint:  #64748b;
   --theme-card:        rgba(15,23,42,0.88);
   --theme-card-solid:  #1e293b;
-  --theme-border:      rgba(255,255,255,0.10);
+  --theme-border:      var(--border-color);
   --theme-primary:     #818cf8;
   --theme-glow-a:      rgba(99,102,241,0.14);
   --theme-glow-b:      rgba(6,182,212,0.09);
@@ -136,7 +190,7 @@
    GLOBAL BASE
    ═══════════════════════════════════════════════════ */
 html {
-  color-scheme: dark;
+  color-scheme: light dark;
 }
 
 @layer base {
@@ -185,6 +239,58 @@ html {
     color: var(--theme-text-faint);
     opacity: 1;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   GLOBAL SEMANTIC THEME APPLICATION
+   ══════════════════════════════════════════════════════════════════ */
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1, h2, h3, h4, h5 {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+p, span, label {
+  color: var(--text);
+}
+
+small, .muted {
+  color: var(--text-muted);
+}
+
+.card,
+.dashboard,
+.payment-method,
+.method-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text);
+}
+
+.balance,
+.amount,
+.wallet-number {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+/* Inside gradient cards, always white */
+.main-card .balance,
+.main-card .amount,
+.main-card .wallet-number,
+.highlight .balance,
+.highlight .amount,
+.animate-balance-glow .balance,
+.animate-balance-glow .amount,
+.glow-balance .balance,
+.glow-balance .amount {
+  color: #ffffff !important;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.45);
 }
 
 /* ─── Brand gradient ─────────────────────────────────────────────────────────── */
@@ -290,9 +396,14 @@ html {
 }
 
 /* ─── Status badges ──────────────────────────────────────────────────────────── */
-.badge-pending  { background:rgba(234,179,8,0.12);  color:#d97706; border:1px solid rgba(234,179,8,0.25);  border-radius:999px; padding:3px 10px; font-size:.73rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
-.badge-approved { background:rgba(34,197,94,0.12);  color:#16a34a; border:1px solid rgba(34,197,94,0.25);  border-radius:999px; padding:3px 10px; font-size:.73rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
-.badge-rejected { background:rgba(239,68,68,0.12);  color:#dc2626; border:1px solid rgba(239,68,68,0.25);  border-radius:999px; padding:3px 10px; font-size:.73rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
+.badge-pending  { background:rgba(234,179,8,0.12);  color:#92400e; border:1px solid rgba(234,179,8,0.25);  border-radius:999px; padding:3px 10px; font-size:.73rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
+.badge-approved { background:rgba(34,197,94,0.12);  color:#166534; border:1px solid rgba(34,197,94,0.25);  border-radius:999px; padding:3px 10px; font-size:.73rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
+.badge-rejected { background:rgba(239,68,68,0.12);  color:#991b1b; border:1px solid rgba(239,68,68,0.25);  border-radius:999px; padding:3px 10px; font-size:.73rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
+
+/* Dark mode badge text adjustments */
+.dark .badge-pending  { color: #fbbf24; }
+.dark .badge-approved { color: #4ade80; }
+.dark .badge-rejected { color: #f87171; }
 
 /* ─── Method selector cards ──────────────────────────────────────────────────── */
 .method-card {
@@ -570,11 +681,11 @@ textarea::placeholder {
   opacity: 1;
 }
 
-/* Light mode: use a visible border on inputs */
-:root input:not([type="checkbox"]):not([type="radio"]),
-:root textarea,
-:root select {
-  border-color: rgba(0,0,0,0.18) !important;
+/* Light mode: solid border for inputs */
+:not(.dark) input:not([type="checkbox"]):not([type="radio"]),
+:not(.dark) textarea,
+:not(.dark) select {
+  border-color: var(--border-color) !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
@@ -605,88 +716,9 @@ button[class*="primary"] {
   box-shadow: 0 4px 14px rgba(79,70,229,0.4);
 }
 
-/* ─── Status badge contrast (light mode fix) ─────────────────────────────────── */
-.badge-pending  { color: #92400e; background: rgba(234,179,8,0.12); }
-.badge-approved { color: #166534; background: rgba(34,197,94,0.12); }
-.badge-rejected { color: #991b1b; background: rgba(239,68,68,0.12); }
-
 /* ─── Headings inherit body color (do NOT hardcode — breaks gradient cards) ──── */
 h1, h2, h3, h4, h5, h6 {
   opacity: 1;
-}
-
-/* ═══════════════════════════════════════════════════
-   BALANCE NUMBER — Maximum visibility in gradient cards
-   ═══════════════════════════════════════════════════ */
-
-/* ─── .balance / .amount classes — strong neon-readable style ────────────────── */
-.balance, .amount {
-  color: #ffffff !important;
-  font-size: 2.25rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  font-variant-numeric: tabular-nums;
-  text-shadow:
-    0 2px 6px rgba(0,0,0,0.55),
-    0 0 20px rgba(99,102,241,0.3);
-  -webkit-text-stroke: 0.5px rgba(0,0,0,0.25);
-  opacity: 1 !important;
-}
-
-/* ─── Wallet balance card — target the actual h2 inside gradient card ─────────── */
-.animate-balance-glow h2,
-.animate-balance-glow .balance-number {
-  color: #ffffff !important;
-  text-shadow:
-    0 2px 8px rgba(0,0,0,0.6),
-    0 0 30px rgba(255,255,255,0.15);
-  -webkit-text-stroke: 0.5px rgba(0,0,0,0.3);
-  opacity: 1 !important;
-  font-weight: 900 !important;
-}
-
-/* Ensure any paragraph / subtext inside the balance card also stays white */
-.animate-balance-glow p,
-.animate-balance-glow span {
-  opacity: 1 !important;
-}
-
-/* ─── .glow-balance card — ensure white text with shadow ─────────────────────── */
-.glow-balance h2,
-.glow-balance p,
-.glow-balance span {
-  color: #ffffff !important;
-  opacity: 1 !important;
-}
-
-/* ─── .main-card — strong overlay + no blur conflict ────────────────────────── */
-.main-card {
-  position: relative;
-  overflow: hidden;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-.main-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.22);
-  z-index: 1;
-  border-radius: inherit;
-  pointer-events: none;
-}
-.main-card > * {
-  position: relative;
-  z-index: 2;
-}
-.main-card * {
-  opacity: 1 !important;
-  color: #ffffff !important;
-}
-.main-card h1,
-.main-card h2,
-.main-card h3 {
-  text-shadow: 0 2px 6px rgba(0,0,0,0.5);
 }
 
 /* ─── Gradient balance card (inline style) — protect text inside ─────────────── */
@@ -733,8 +765,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 /* inactive cards in light mode have light bg → dark label */
 .payment-method .method-card:not(.active) .pm-card-label {
-  color: #e2e8f0;
+  color: var(--text-strong);
   text-shadow: none;
+}
+.dark .payment-method .method-card:not(.active) .pm-card-label {
+  color: #e2e8f0;
 }
 
 /* ── Info box (description area) ─────────────────── */
@@ -743,27 +778,47 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid rgba(59,130,246,0.15);
 }
 .payment-method .pm-info-text {
+  color: #1d4ed8;
+}
+.dark .payment-method .pm-info-text {
   color: #93c5fd;
 }
 .payment-method .pm-info-text svg {
+  color: #3b82f6;
+}
+.dark .payment-method .pm-info-text svg {
   color: #60a5fa;
 }
 
 /* ── Wallet/transfer number display ──────────────── */
 .payment-method .pm-number {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-  color: #e2e8f0;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-strong);
   font-weight: 600;
+}
+.dark .payment-method .pm-number {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.08);
+  color: #e2e8f0;
 }
 
 /* ── Copy button ─────────────────────────────────── */
 .payment-method .pm-copy-btn {
+  background: rgba(0,0,0,0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+}
+.dark .payment-method .pm-copy-btn {
   background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.1);
   color: #94a3b8;
 }
 .payment-method .pm-copy-btn:hover {
+  background: rgba(0,0,0,0.1);
+  color: var(--text);
+}
+.dark .payment-method .pm-copy-btn:hover {
   background: rgba(255,255,255,0.12);
   color: #e2e8f0;
 }
@@ -780,21 +835,23 @@ th { color: var(--theme-text-muted); }
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Core text helpers ───────────────────────────────────────────────────────── */
-.db-text          { color: #f1f5f9; }
-.db-muted         { color: #94a3b8; }
-.db-faint         { color: #64748b; }
+.db-text          { color: var(--text); }
+.db-muted         { color: var(--text-muted); }
+.db-faint         { color: var(--text-muted); }
 
 /* ── Accent (prices, balances, links) ────────────────────────────────────────── */
-.db-accent  { color: #a5b4fc; font-weight: 700; }
+.db-accent  { color: var(--theme-primary); font-weight: 700; }
 
 /* ── Links ───────────────────────────────────────────────────────────────────── */
-.db-link    { color: #a5b4fc; }
-.db-link:hover { color: #c7d2fe; }
+.db-link    { color: var(--theme-primary); }
+.db-link:hover { color: var(--text-strong); }
 .db-link-bg { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); }
 
 /* ── Platform icon colors (adapt for light mode) ─────────────────────────────── */
-.db-icon-tiktok { color: #e2e8f0; }
-.db-icon-x     { color: #e2e8f0; }
+.db-icon-tiktok { color: #0f172a; }
+.dark .db-icon-tiktok { color: #e2e8f0; }
+.db-icon-x     { color: #0f172a; }
+.dark .db-icon-x     { color: #e2e8f0; }
 .db-icon-muted  { color: #6b7280; }
 
 /* ── Live activity banner ────────────────────────────────────────────────────── */
@@ -802,17 +859,24 @@ th { color: var(--theme-text-muted); }
   background: linear-gradient(to left, rgba(249,115,22,0.1), rgba(239,68,68,0.1));
   border: 1px solid rgba(249,115,22,0.2);
 }
-.db-muted-orange { color: rgba(251,146,60,0.75); }
+.db-muted-orange { color: #b45309; }
+.dark .db-muted-orange { color: rgba(251,146,60,0.85); }
 
 /* Live badge */
-.db-live-badge { background: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.db-live-badge { background: rgba(34,197,94,0.12); color: #15803d; border: 1px solid rgba(34,197,94,0.3); }
+.dark .db-live-badge { background: rgba(34,197,94,0.2); color: #4ade80; }
 
 /* ── Hero card ───────────────────────────────────────────────────────────────── */
 .db-hero {
-  background: linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(59,130,246,0.15) 50%, rgba(99,102,241,0.25) 100%);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(59,130,246,0.10) 50%, rgba(99,102,241,0.15) 100%);
+  border: 1px solid rgba(99,102,241,0.15);
 }
-.db-hero-title { color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+.dark .db-hero {
+  background: linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(59,130,246,0.15) 50%, rgba(99,102,241,0.25) 100%);
+  border-color: rgba(255,255,255,0.08);
+}
+.db-hero-title { color: #1e1b4b; text-shadow: none; }
+.dark .db-hero-title { color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
 
 /* ── Trust badge panels ──────────────────────────────────────────────────────── */
 .db-badge-green  { background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.2); }
@@ -820,27 +884,37 @@ th { color: var(--theme-text-muted); }
 .db-badge-purple { background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.2); }
 .db-badge-emerald{ background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
 
-.db-muted-green  { color: rgba(74,222,128,0.7); }
-.db-muted-blue   { color: rgba(96,165,250,0.7); }
-.db-muted-purple { color: rgba(192,132,252,0.7); }
-.db-emerald-text { color: #6ee7b7; }
+.db-muted-green  { color: #15803d; }
+.dark .db-muted-green  { color: rgba(74,222,128,0.75); }
+.db-muted-blue   { color: #1d4ed8; }
+.dark .db-muted-blue   { color: rgba(96,165,250,0.75); }
+.db-muted-purple { color: #7c3aed; }
+.dark .db-muted-purple { color: rgba(192,132,252,0.75); }
+.db-emerald-text { color: #065f46; }
+.dark .db-emerald-text { color: #6ee7b7; }
 
 /* ── Stats cards ─────────────────────────────────────────────────────────────── */
 .db-stat-card {
   backdrop-filter: blur(12px);
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+.dark .db-stat-card {
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.08);
 }
 .db-stat-card-gradient {
   backdrop-filter: blur(12px);
   background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(59,130,246,0.15) 100%);
   border: 1px solid rgba(255,255,255,0.1);
 }
-.db-stat-label   { color: #94a3b8; }
-.db-stat-number  { color: #f1f5f9; }
-.db-stat-number-green { color: #4ade80; }
-.db-balance-number { color: #ffffff; font-weight: 900; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-.db-skeleton { background: rgba(255,255,255,0.08); }
+.db-stat-label   { color: var(--text-muted); }
+.db-stat-number  { color: var(--text-strong); }
+.db-stat-number-green { color: #16a34a; }
+.dark .db-stat-number-green { color: #4ade80; }
+.db-balance-number { color: #ffffff; font-weight: 900; text-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+.db-skeleton { background: rgba(0,0,0,0.06); }
+.dark .db-skeleton { background: rgba(255,255,255,0.08); }
 
 /* ── Promo card (Instagram) ──────────────────────────────────────────────────── */
 .db-promo-card {
@@ -850,30 +924,50 @@ th { color: var(--theme-text-muted); }
 .db-promo-card:hover {
   background: linear-gradient(to left, rgba(236,72,153,0.15), rgba(168,85,247,0.15));
 }
-.db-promo-icon-bg { background: #0f0f1a; }
+.db-promo-icon-bg { background: #f5f3ff; }
+.dark .db-promo-icon-bg { background: #0f0f1a; }
 
 /* ── Popular services section ────────────────────────────────────────────────── */
-.db-hot-badge { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+.db-hot-badge { background: rgba(239,68,68,0.08); color: #b91c1c; border: 1px solid rgba(239,68,68,0.2); }
+.dark .db-hot-badge { background: rgba(239,68,68,0.15); color: #f87171; }
 
 .db-service-row {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+.dark .db-service-row {
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.08);
 }
 .db-service-row:hover {
+  background: rgba(99,102,241,0.06);
+  border-color: rgba(99,102,241,0.25);
+}
+.dark .db-service-row:hover {
   background: rgba(255,255,255,0.08);
   border-color: rgba(99,102,241,0.3);
 }
 
 .db-rank-badge {
+  background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(59,130,246,0.1));
+  border: 1px solid rgba(99,102,241,0.2);
+  color: #4f46e5;
+}
+.dark .db-rank-badge {
   background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(59,130,246,0.2));
-  border: 1px solid rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.1);
   color: #a5b4fc;
 }
 
 .db-featured-badge { background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2); }
-.db-featured-text   { color: #fb923c; }
+.db-featured-text   { color: #b45309; }
+.dark .db-featured-text   { color: #fb923c; }
 
 .db-empty-card {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}
+.dark .db-empty-card {
   background: rgba(255,255,255,0.03);
   border-color: rgba(255,255,255,0.08);
 }
@@ -881,17 +975,28 @@ th { color: var(--theme-text-muted); }
 /* ── Platform cards ──────────────────────────────────────────────────────────── */
 .db-platform-card {
   backdrop-filter: blur(12px);
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+.dark .db-platform-card {
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.08);
 }
 .db-platform-card:hover {
+  background: rgba(0,0,0,0.04);
+}
+.dark .db-platform-card:hover {
   background: rgba(255,255,255,0.09);
 }
 
 /* ── Recent orders ───────────────────────────────────────────────────────────── */
 .db-order-row {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+.dark .db-order-row {
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.08);
 }
 
 /* ─── Mobile — ensure touch targets are big enough ──────────────────────────── */
