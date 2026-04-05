@@ -5,8 +5,8 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "dev": "concurrently --names \"API,WEB\" --prefix-colors \"cyan,magenta\" \"pnpm run dev:api\" \"pnpm run dev:web\"",
-    "dev:api": "PORT=3000 pnpm --filter @workspace/api-server run dev",
-    "dev:web": "VITE_API_URL=http://localhost:3000 pnpm --filter @workspace/smm-panel run dev",
+    "dev:api": "PORT=8080 pnpm --filter @workspace/api-server run dev",
+    "dev:web": "PORT=23639 pnpm --filter @workspace/smm-panel run dev",
     "build": "pnpm --filter @workspace/smm-panel run build",
     "build:all": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",

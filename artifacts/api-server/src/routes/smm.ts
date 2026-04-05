@@ -13,7 +13,23 @@ const SUPABASE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"] || "";
 if (!FOLLOWIZ_KEY) console.warn("[SMM] ⚠️  FOLLOWIZ_KEY env var not set!");
 if (!SUPABASE_URL || !SUPABASE_KEY) console.warn("[SMM] ⚠️  Supabase credentials missing");
 
-const adminDb: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Lazy Supabase client — only instantiated when credentials are available
+let _adminDb: SupabaseClient | null = null;
+function getAdminDb(): SupabaseClient {
+  if (!_adminDb) {
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      throw new Error("SUPABASE_SERVICE_ROLE_KEY and SUPABASE_URL are required for this operation");
+    }
+    _adminDb = createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+  return _adminDb;
+}
+// Alias for backward compatibility within this file
+const adminDb = new Proxy({} as SupabaseClient, {
+  get(_target, prop) {
+    return (getAdminDb() as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type FollowizService = {
