@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { startSmmPoller } from "./routes/smm";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,7 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // بدء تتبع حالة الطلبات ومزامنة الخدمات تلقائياً
+  startSmmPoller();
 });
