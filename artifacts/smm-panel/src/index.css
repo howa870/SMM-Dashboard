@@ -122,17 +122,19 @@
   --radius: 1.25rem;
 
   /* ── Custom semantic vars for glass/neon effects (light) ── */
-  --theme-bg:        #f8fafc;
-  --theme-text:      #0f172a;
-  --theme-card:      rgba(255,255,255,0.75);
-  --theme-card-solid: #ffffff;
-  --theme-border:    rgba(0,0,0,0.1);
-  --theme-primary:   #6366f1;
-  --theme-glow-a:    rgba(99,102,241,0.15);
-  --theme-glow-b:    rgba(34,211,238,0.10);
-  --theme-surface:   rgba(248,250,252,0.85);
-  --theme-input-bg:  rgba(255,255,255,0.6);
-  --theme-shadow:    rgba(0,0,0,0.08);
+  --theme-bg:          #f8fafc;
+  --theme-text:        #111827;
+  --theme-text-muted:  #4b5563;
+  --theme-text-faint:  #6b7280;
+  --theme-card:        rgba(255,255,255,0.92);
+  --theme-card-solid:  #ffffff;
+  --theme-border:      rgba(0,0,0,0.12);
+  --theme-primary:     #4f46e5;
+  --theme-glow-a:      rgba(99,102,241,0.15);
+  --theme-glow-b:      rgba(34,211,238,0.10);
+  --theme-surface:     rgba(248,250,252,0.95);
+  --theme-input-bg:    #ffffff;
+  --theme-shadow:      rgba(0,0,0,0.10);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -185,17 +187,19 @@
   --chart-5: 0 72% 51%;
 
   /* ── Custom semantic vars (dark) ── */
-  --theme-bg:        #020617;
-  --theme-text:      #e2e8f0;
-  --theme-card:      rgba(15,23,42,0.75);
-  --theme-card-solid: #1e293b;
-  --theme-border:    rgba(255,255,255,0.08);
-  --theme-primary:   #7c3aed;
-  --theme-glow-a:    rgba(99,102,241,0.12);
-  --theme-glow-b:    rgba(6,182,212,0.08);
-  --theme-surface:   rgba(15,23,42,0.85);
-  --theme-input-bg:  rgba(15,23,42,0.6);
-  --theme-shadow:    rgba(0,0,0,0.4);
+  --theme-bg:          #020617;
+  --theme-text:        #f1f5f9;
+  --theme-text-muted:  #94a3b8;
+  --theme-text-faint:  #64748b;
+  --theme-card:        rgba(15,23,42,0.88);
+  --theme-card-solid:  #1e293b;
+  --theme-border:      rgba(255,255,255,0.10);
+  --theme-primary:     #818cf8;
+  --theme-glow-a:      rgba(99,102,241,0.14);
+  --theme-glow-b:      rgba(6,182,212,0.09);
+  --theme-surface:     rgba(15,23,42,0.92);
+  --theme-input-bg:    rgba(15,23,42,0.75);
+  --theme-shadow:      rgba(0,0,0,0.45);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -222,12 +226,15 @@ html {
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-sans antialiased bg-background;
+    color: var(--theme-text);
     background:
       radial-gradient(circle at 20% 20%, var(--theme-glow-a) 0%, transparent 45%),
       radial-gradient(circle at 80% 80%, var(--theme-glow-b) 0%, transparent 45%),
       hsl(var(--background));
     min-height: 100dvh;
+    direction: rtl;
+    text-align: right;
   }
 
   ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -235,13 +242,18 @@ html {
   ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 9999px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.55); }
 
-  /* Light-mode input override */
+  /* Global input — opaque, high-contrast */
   input, textarea, select {
     background: var(--theme-input-bg);
-    border: 1px solid var(--theme-border);
+    border: 1.5px solid var(--theme-border);
     border-radius: 10px;
     color: var(--theme-text);
-    backdrop-filter: blur(10px);
+    padding: 10px 14px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  input::placeholder, textarea::placeholder {
+    color: var(--theme-text-faint);
+    opacity: 1;
   }
 }
 
@@ -569,4 +581,138 @@ td { font-size: 0.9rem; }
   border-color: rgba(99,102,241,0.5);
   box-shadow: 0 0 15px rgba(99,102,241,0.3);
   transform: scale(1.08);
+}
+
+/* ═══════════════════════════════════════════════════
+   CONTRAST & READABILITY — Theme-aware (NOT hardcoded)
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Body text base ─────────────────────────────────────────────────────────── */
+body {
+  color: var(--theme-text);
+}
+
+/* ─── Muted text helpers (both modes) ───────────────────────────────────────── */
+.text-muted-theme  { color: var(--theme-text-muted) !important; }
+.text-faint-theme  { color: var(--theme-text-faint) !important; }
+
+/* Light mode: ensure Tailwind slate/gray classes are dark enough */
+:root .text-slate-400,
+:root .text-slate-500,
+:root .text-gray-400,
+:root .text-gray-500 {
+  color: var(--theme-text-muted) !important;
+}
+:root .text-slate-300,
+:root .text-gray-300 {
+  color: var(--theme-text-muted) !important;
+}
+
+/* Dark mode: keep slate/gray classes as they are — they render correctly */
+
+/* ─── Gradient cards — always white text + subtle overlay ────────────────────── */
+.main-card, .highlight {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #4f46e5 0%, #059669 100%);
+  color: #fff !important;
+  box-shadow: 0 10px 30px rgba(79,70,229,0.4);
+}
+.main-card::before, .highlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.12);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.main-card > *, .highlight > * {
+  position: relative;
+  z-index: 1;
+}
+.main-card *,
+.highlight * {
+  color: #fff !important;
+}
+
+/* ─── Glass card — ensure text is always readable ────────────────────────────── */
+.glass-card, .card {
+  color: var(--theme-text);
+}
+
+/* ─── Inputs — solid, high-contrast ─────────────────────────────────────────── */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  background: var(--theme-input-bg) !important;
+  color: var(--theme-text) !important;
+  border: 1.5px solid var(--theme-border) !important;
+  border-radius: 10px;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--theme-text-faint) !important;
+  opacity: 1;
+}
+
+/* Light mode: use a visible border on inputs */
+:root input:not([type="checkbox"]):not([type="radio"]),
+:root textarea,
+:root select {
+  border-color: rgba(0,0,0,0.18) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+/* ─── Balance / amount numbers — always full opacity, large ──────────────────── */
+.balance, .amount {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--theme-text);
+}
+/* Inside gradient cards, always white */
+.main-card .balance,
+.main-card .amount,
+.highlight .balance,
+.highlight .amount {
+  color: #fff !important;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+/* ─── Primary action buttons ─────────────────────────────────────────────────── */
+.primary-btn,
+button[class*="primary"] {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 4px 14px rgba(79,70,229,0.4);
+}
+
+/* ─── Status badge contrast (light mode fix) ─────────────────────────────────── */
+:root .badge-pending  { color: #92400e; background: rgba(234,179,8,0.12); }
+:root .badge-approved { color: #166534; background: rgba(34,197,94,0.12); }
+:root .badge-rejected { color: #991b1b; background: rgba(239,68,68,0.12); }
+
+/* ─── Ensure headings have full opacity / strong contrast ────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--theme-text);
+  opacity: 1;
+}
+
+/* ─── Table cells — readable ─────────────────────────────────────────────────── */
+td { color: var(--theme-text); }
+th { color: var(--theme-text-muted); }
+
+/* ─── Sidebar / header text always readable ──────────────────────────────────── */
+.sidebar-label { color: var(--theme-text); font-weight: 600; }
+
+/* ─── Mobile — ensure touch targets are big enough ──────────────────────────── */
+@media (max-width: 640px) {
+  button, a[role="button"] { min-height: 44px; }
+  input, textarea, select  { min-height: 44px; font-size: 16px; }
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.4rem; }
+  h3 { font-size: 1.15rem; }
 }
