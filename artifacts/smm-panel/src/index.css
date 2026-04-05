@@ -116,7 +116,7 @@
   --chart-4: 38 92% 50%;
   --chart-5: 0 72% 51%;
 
-  --app-font-sans: 'Cairo', sans-serif;
+  --app-font-sans: 'Cairo', 'Tajawal', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
   --radius: 1.25rem;
@@ -417,6 +417,137 @@ input:focus, textarea:focus, select:focus {
   50%      { box-shadow: 0 0 10px rgba(99,102,241,0.5), 0 0 40px rgba(99,102,241,0.25); }
 }
 .neon-border { animation: neonPulse 3s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════════════
+   GLOBAL TYPOGRAPHY — Arabic-first, Cairo + Tajawal
+   ═══════════════════════════════════════════════════ */
+
+html, body {
+  font-family: 'Cairo', 'Tajawal', sans-serif !important;
+  font-weight: 500;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Cairo', 'Tajawal', sans-serif;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+p, span, li, label, td, th {
+  font-family: 'Cairo', 'Tajawal', sans-serif;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+button, a {
+  font-family: 'Cairo', 'Tajawal', sans-serif;
+  font-weight: 600;
+}
+
+input, textarea, select {
+  font-family: 'Cairo', 'Tajawal', sans-serif !important;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* ─── Number highlight classes ───────────────────────────────────────────────── */
+.balance, .amount, .price, .number {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+  font-family: 'Cairo', 'Tajawal', sans-serif;
+}
+.number-sm { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+/* ─── Global card (theme-aware) ──────────────────────────────────────────────── */
+.card {
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 20px var(--theme-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 16px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card:hover {
+  box-shadow: 0 12px 32px var(--theme-shadow);
+  transform: translateY(-1px);
+}
+
+/* ─── Primary/highlight section cards ────────────────────────────────────────── */
+.main-card, .highlight {
+  background: linear-gradient(135deg, #6366f1, #06b6d4);
+  color: #fff;
+  border: none;
+  box-shadow: 0 10px 30px rgba(99,102,241,0.35);
+  border-radius: 16px;
+  padding: 20px;
+}
+.main-card h1,.main-card h2,.main-card h3,
+.main-card p,.main-card span { color: #fff; }
+
+/* ─── Global button improvements ─────────────────────────────────────────────── */
+button:not(.theme-toggle-btn):not([class*="btn-"]):not([data-state]):not([role="switch"]) {
+  border-radius: 12px;
+  font-weight: 600;
+  font-family: 'Cairo', 'Tajawal', sans-serif;
+  cursor: pointer;
+  transition: transform 0.25s ease, opacity 0.25s ease, box-shadow 0.25s ease;
+}
+button:not(.theme-toggle-btn):not([class*="btn-"]):not([data-state]):not([role="switch"]):hover:not(:disabled) {
+  transform: scale(1.02);
+  opacity: 0.94;
+}
+button:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* ─── Global input/textarea improvements ─────────────────────────────────────── */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea {
+  font-size: 15px;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+/* ─── Twemoji image sizing ───────────────────────────────────────────────────── */
+img.emoji {
+  height: 1.2em;
+  width: 1.2em;
+  display: inline-block;
+  vertical-align: -0.2em;
+}
+
+/* ─── RTL utility helpers ────────────────────────────────────────────────────── */
+[dir="rtl"] input, [dir="rtl"] textarea {
+  text-align: right;
+}
+[dir="rtl"] select { text-align: right; }
+
+/* ─── Improved table readability ─────────────────────────────────────────────── */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th {
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+td { font-size: 0.9rem; }
+
+/* ─── Scrollable table containers ───────────────────────────────────────────── */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 16px;
+}
 
 /* ─── Theme toggle button ────────────────────────────────────────────────────── */
 .theme-toggle-btn {
