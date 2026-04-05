@@ -7,7 +7,7 @@ const router = Router();
 const BOT_TOKEN    = process.env["TELEGRAM_BOT_TOKEN"] || "";
 const CHAT_ID      = process.env["TELEGRAM_CHAT_ID"] || "";
 const ADMIN_ID     = Number(process.env["TELEGRAM_ADMIN_ID"] || "0");
-const SUPABASE_URL = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || "";
+const SUPABASE_URL = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"] || "";
 const SUPABASE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"] || "";
 
 if (!BOT_TOKEN)    console.error("[TG] ❌ TELEGRAM_BOT_TOKEN not set");

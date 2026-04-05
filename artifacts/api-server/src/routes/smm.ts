@@ -7,7 +7,7 @@ const router = Router();
 const FOLLOWIZ_URL = "https://followiz.com/api/v2";
 const FOLLOWIZ_KEY = process.env["FOLLOWIZ_KEY"] || "";
 
-const SUPABASE_URL = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || "";
+const SUPABASE_URL = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"] || "";
 const SUPABASE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"] || "";
 
 if (!FOLLOWIZ_KEY) console.warn("[SMM] ⚠️  FOLLOWIZ_KEY env var not set!");

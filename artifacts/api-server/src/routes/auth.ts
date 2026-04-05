@@ -9,7 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 const router = Router();
 
 // Supabase admin client — uses service role key to bypass email confirmation
-const SUPABASE_URL  = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"] || "";
+const SUPABASE_URL  = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"] || "";
 const SERVICE_KEY   = process.env["SUPABASE_SERVICE_ROLE_KEY"] || "";
 const supabaseAdmin = SUPABASE_URL && SERVICE_KEY
   ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
