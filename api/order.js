@@ -5,8 +5,8 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, error: "Method not allowed" });
 
-  const { service, link, quantity, provider_service_id, price_per_1000 } = req.body || {};
-  const svcId = service || provider_service_id;
+  const { service, link, quantity, provider_service_id, service_id, price_per_1000 } = req.body || {};
+  const svcId = service || service_id || provider_service_id;
 
   if (!svcId || !link || !quantity) {
     return res.status(400).json({ ok: false, error: "service و link و quantity مطلوبة" });

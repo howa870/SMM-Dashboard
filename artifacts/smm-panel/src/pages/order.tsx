@@ -16,7 +16,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 
-const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "") + "/api/smm";
+const BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
 // ─── Step tracker for order submission ─────────────────────────────────────────
 type Step = "idle" | "deducting" | "sending" | "saving" | "done" | "error";
@@ -43,13 +43,14 @@ async function placeOrder(params: {
   total_price: number;
   message: string;
 }> {
-  const res = await fetch(`${BASE}/order`, {
+  const res = await fetch(`${BASE}/api/order`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${params.token}`,
     },
     body: JSON.stringify({
+      service:    params.service_id,
       service_id: params.service_id,
       link:       params.link,
       quantity:   params.quantity,
