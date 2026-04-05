@@ -4,9 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Receipt, Clock, CheckCircle2, XCircle, Info, Upload, Copy, Check, Sparkles, ImageIcon } from "lucide-react";
+import { Loader2, Receipt, Clock, CheckCircle2, XCircle, Info, Upload, Copy, Check, Sparkles, ImageIcon, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPayments } from "@/hooks/usePaymentsData";
@@ -73,17 +73,58 @@ export function Wallet() {
   const [copiedNumber, setCopiedNumber] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting]   = useState(false);
+  const [liveBalance, setLiveBalance]     = useState<number | null>(null);
+  const [isRefreshing, setIsRefreshing]   = useState(false);
 
+  // ── دالة جلب الرصيد الحي من API (service role — لا RLS) ─────────────────
+  const fetchLiveBalance = useCallback(async () => {
+    if (!supabaseUser) return;
+    setIsRefreshing(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
+      if (!token) return;
+      const res  = await fetch("/api/balance", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.ok || json.success) {
+        setLiveBalance(Number(json.balance ?? 0));
+        // نحدّث أيضاً الـ cache لتنعكس القيمة في الهيدر
+        queryClient.setQueryData(
+          ["supabase", "profile", supabaseUser.id],
+          (old: Record<string, unknown> | null) =>
+            old ? { ...old, balance: Number(json.balance ?? 0) } : old
+        );
+      }
+    } catch (e) {
+      console.warn("[wallet] fetchLiveBalance:", e);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [supabaseUser, queryClient]);
+
+  // ── Polling: جلب الرصيد كل 5 ثوان ───────────────────────────────────────
+  useEffect(() => {
+    fetchLiveBalance();
+    const interval = setInterval(fetchLiveBalance, 5000);
+    return () => clearInterval(interval);
+  }, [fetchLiveBalance]);
+
+  // ── Realtime: استمع لتحديثات جدول profiles ───────────────────────────────
   useEffect(() => {
     if (!supabaseUser) return;
     const channel = supabase
       .channel(`balance:${supabaseUser.id}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${supabaseUser.id}` },
-        () => { queryClient.invalidateQueries({ queryKey: ["supabase", "profile", supabaseUser.id] }); })
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["supabase", "profile", supabaseUser.id] });
+          fetchLiveBalance();
+        })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [supabaseUser?.id, queryClient]);
+  }, [supabaseUser?.id, queryClient, fetchLiveBalance]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -164,7 +205,8 @@ export function Wallet() {
     }
   };
 
-  const balance = Number(profile?.balance || 0);
+  // liveBalance من API (أحدث قيمة) أو profile من Supabase كـ fallback
+  const balance = liveBalance !== null ? liveBalance : Number(profile?.balance || 0);
   const selectedMeta = METHOD_META[method] || METHOD_META.manual;
   const selectedNumber = paymentNumbers[method] || "—";
 
@@ -208,9 +250,20 @@ export function Wallet() {
                     <p className="text-white/60 text-sm mt-2 font-medium">دينار عراقي (IQD)</p>
                   </div>
                 )}
-                <div className="mt-5 flex items-center justify-center gap-2 bg-white/15 rounded-full px-4 py-1.5 mx-auto w-fit">
-                  <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
-                  <span className="text-white/80 text-xs">يتحدث تلقائياً</span>
+                <div className="mt-5 flex items-center justify-center gap-2">
+                  <div className="flex items-center gap-2 bg-white/15 rounded-full px-4 py-1.5">
+                    <span className="w-2 h-2 rounded-full bg-green-300 animate-pulse" />
+                    <span className="text-white/80 text-xs">يتحدث كل 5 ثوان</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={fetchLiveBalance}
+                    disabled={isRefreshing}
+                    title="تحديث الرصيد الآن"
+                    className="bg-white/20 hover:bg-white/35 active:scale-95 rounded-full p-2 transition-all duration-150 disabled:opacity-60"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-white ${isRefreshing ? "animate-spin" : ""}`} />
+                  </button>
                 </div>
               </div>
             </div>

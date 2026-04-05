@@ -11,7 +11,8 @@ export function useProfile() {
     queryKey: ["supabase", "profile", supabaseUser?.id],
     queryFn: () => getProfile(supabaseUser!.id),
     enabled: !!supabaseUser,
-    staleTime: 30 * 1000,
+    staleTime: 5 * 1000,   // 5 ثوان — يضمن تحديث سريع بعد اعتماد الدفعة
+    refetchInterval: 10 * 1000, // auto-refetch كل 10 ثوان
   });
 
   useEffect(() => {
