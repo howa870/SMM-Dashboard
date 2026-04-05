@@ -4,6 +4,7 @@ import {
   Zap, Shield, Wallet, Smartphone, CheckCircle,
   TrendingUp, Users, Star, ArrowLeft, Lock, Flame
 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // ─── Animated counter ───────────────────────────────────────────────────────
 function Counter({ to, suffix = "", duration = 2000 }: { to: number; suffix?: string; duration?: number }) {
@@ -100,16 +101,16 @@ export function Landing() {
   }, []);
 
   return (
-    <div className="min-h-[100dvh] bg-[#0F172A] text-[#E2E8F0] overflow-x-hidden" dir="rtl">
+    <div className="min-h-[100dvh] overflow-x-hidden" style={{ color: "var(--theme-text)" }} dir="rtl">
 
       {/* ── Ambient background glows ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] right-[-5%] w-[60%] h-[60%] rounded-full blur-[140px]"
-          style={{ background: "rgba(99,102,241,0.12)" }} />
+          style={{ background: "var(--theme-glow-a)" }} />
         <div className="absolute top-[30%] left-[-10%] w-[50%] h-[50%] rounded-full blur-[130px]"
           style={{ background: "rgba(139,92,246,0.08)" }} />
         <div className="absolute bottom-[-5%] right-[20%] w-[40%] h-[40%] rounded-full blur-[120px]"
-          style={{ background: "rgba(6,182,212,0.07)" }} />
+          style={{ background: "var(--theme-glow-b)" }} />
       </div>
 
       {/* ══════════════════════════════════════════════
@@ -119,9 +120,10 @@ export function Landing() {
         navScrolled ? "py-3" : "py-5"
       }`}
         style={{
-          background: navScrolled ? "rgba(15,23,42,0.95)" : "transparent",
+          background: navScrolled ? "var(--theme-card)" : "transparent",
           backdropFilter: navScrolled ? "blur(20px)" : "none",
-          borderBottom: navScrolled ? "1px solid rgba(255,255,255,0.06)" : "none",
+          WebkitBackdropFilter: navScrolled ? "blur(20px)" : "none",
+          borderBottom: navScrolled ? "1px solid var(--theme-border)" : "none",
         }}>
         <div className="max-w-6xl mx-auto px-5 flex items-center justify-between gap-4">
           {/* Logo */}
@@ -130,13 +132,17 @@ export function Landing() {
               style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}>
               🚀
             </div>
-            <span className="text-lg font-black text-white">Boost Iraq</span>
+            <span className="text-lg font-black" style={{ color: "var(--theme-text)" }}>Boost Iraq</span>
           </div>
 
           {/* Nav actions */}
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link href="/login"
-              className="hidden sm:flex text-slate-300 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/5">
+              className="hidden sm:flex px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={{ color: "var(--theme-text)", opacity: 0.75 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.75"; }}>
               تسجيل الدخول
             </Link>
             <Link href="/register"

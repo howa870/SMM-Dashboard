@@ -55,22 +55,32 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const balance        = Number(profile?.balance || 0);
 
   const sidebarContent = (
-    <div className="w-64 h-full flex flex-col border-l border-white/[0.07]"
-      style={{ background: "rgba(13,20,35,0.97)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+    <div
+      className="w-64 h-full flex flex-col"
+      style={{
+        background: "var(--theme-card)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        borderLeft: "1px solid var(--theme-border)",
+      }}
+    >
 
       {/* ── Logo ── */}
-      <div className="px-5 pt-6 pb-5 border-b border-white/[0.06] flex items-center justify-between">
+      <div
+        className="px-5 pt-6 pb-5 flex items-center justify-between"
+        style={{ borderBottom: "1px solid var(--theme-border)" }}
+      >
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-xl">🚀</span>
-            <span className="text-lg font-black text-white">Boost Iraq</span>
+            <span className="text-lg font-black" style={{ color: "var(--theme-text)" }}>Boost Iraq</span>
           </div>
-          <p className="text-[11px] text-slate-500">أفضل خدمات السوشيال في العراق</p>
+          <p className="text-[11px]" style={{ color: "rgba(100,116,139,0.8)" }}>أفضل خدمات السوشيال في العراق</p>
         </div>
-        {/* Close button — mobile only */}
         {onClose && (
           <button onClick={onClose}
-            className="md:hidden w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/8 transition-all"
+            className="md:hidden w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+            style={{ color: "var(--theme-text)", opacity: 0.5 }}
             aria-label="إغلاق القائمة">
             <X className="w-4 h-4" />
           </button>
@@ -82,16 +92,17 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         className="mx-4 mt-4 rounded-2xl p-3.5 flex items-center gap-3 transition-all hover:brightness-110 active:scale-[0.98]"
         style={{
           background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
-          border: "1px solid rgba(99,102,241,0.22)"
+          border: "1px solid rgba(99,102,241,0.25)",
         }}>
-        <div className="w-9 h-9 rounded-[12px] bg-white/10 flex items-center justify-center text-lg shrink-0">💰</div>
+        <div className="w-9 h-9 rounded-[12px] flex items-center justify-center text-lg shrink-0"
+          style={{ background: "rgba(99,102,241,0.15)" }}>💰</div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-slate-400">رصيدي</p>
-          <p className="text-sm font-black text-white font-mono leading-tight">
-            {balance.toLocaleString()} <span className="text-[11px] font-normal text-slate-400">IQD</span>
+          <p className="text-xs" style={{ color: "rgba(100,116,139,0.8)" }}>رصيدي</p>
+          <p className="text-sm font-black font-mono leading-tight" style={{ color: "var(--theme-text)" }}>
+            {balance.toLocaleString()} <span className="text-[11px] font-normal" style={{ color: "rgba(100,116,139,0.7)" }}>IQD</span>
           </p>
         </div>
-        <ChevronLeft className="w-4 h-4 text-slate-500 shrink-0" />
+        <ChevronLeft className="w-4 h-4 shrink-0" style={{ color: "rgba(100,116,139,0.6)" }} />
       </Link>
 
       {/* ── Nav items ── */}
@@ -101,27 +112,23 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           const isActive = location === item.href;
           return (
             <Link key={item.href} href={item.href} onClick={handleNavClick}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] transition-all duration-200 group relative overflow-hidden ${
-                isActive
-                  ? "text-white font-semibold"
-                  : "text-slate-400 hover:text-white font-medium"
-              }`}
-              style={isActive ? {
-                background: "linear-gradient(135deg, rgba(99,102,241,0.22), rgba(139,92,246,0.12))",
-                border: "1px solid rgba(99,102,241,0.28)",
-                boxShadow: "0 4px 15px rgba(99,102,241,0.12)",
-              } : {}}>
-
-              {!isActive && (
-                <div className="absolute inset-0 rounded-[14px] opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ background: "rgba(255,255,255,0.04)" }} />
-              )}
-              <div className={`relative w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 transition-all ${
-                isActive
-                  ? "text-white shadow-md shadow-indigo-500/30"
-                  : "text-slate-400 group-hover:text-white"
-              }`}
-                style={isActive ? { background: "linear-gradient(135deg, #6366F1, #8B5CF6)" } : { background: "rgba(255,255,255,0.06)" }}>
+              className="flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] transition-all duration-200 group relative overflow-hidden"
+              style={{
+                color: isActive ? "#6366f1" : "var(--theme-text)",
+                fontWeight: isActive ? 600 : 500,
+                opacity: isActive ? 1 : 0.7,
+                ...(isActive ? {
+                  background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.08))",
+                  border: "1px solid rgba(99,102,241,0.28)",
+                  boxShadow: "0 4px 15px rgba(99,102,241,0.1)",
+                } : {}),
+              }}>
+              <div
+                className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 transition-all"
+                style={isActive
+                  ? { background: "linear-gradient(135deg, #6366F1, #8B5CF6)", color: "white" }
+                  : { background: "var(--theme-border)", color: "var(--theme-text)" }
+                }>
                 <Icon className="w-4 h-4" />
               </div>
               <span className="relative text-sm">{item.label}</span>
@@ -131,8 +138,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
         {/* ── Admin section ── */}
         {isAdmin && (
-          <div className="mt-5 pt-4 border-t border-white/[0.06]">
-            <p className="px-3.5 text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+          <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--theme-border)" }}>
+            <p className="px-3.5 text-[10px] font-black uppercase tracking-widest mb-2.5 flex items-center gap-1.5"
+              style={{ color: "rgba(100,116,139,0.7)" }}>
               <ShieldAlert className="w-3 h-3" />
               لوحة الإدارة
             </p>
@@ -142,17 +150,21 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 const isActive = location === item.href;
                 return (
                   <Link key={item.href} href={item.href} onClick={handleNavClick}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] transition-all duration-200 group ${
-                      isActive ? "text-white" : "text-slate-400 hover:text-white"
-                    }`}
-                    style={isActive ? {
-                      background: "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.1))",
-                      border: "1px solid rgba(99,102,241,0.25)",
-                    } : {}}>
-                    <div className={`w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 transition-all ${
-                      isActive ? "text-white" : "text-slate-400 group-hover:text-white"
-                    }`}
-                      style={isActive ? { background: "linear-gradient(135deg, #6366F1, #8B5CF6)" } : { background: "rgba(255,255,255,0.05)" }}>
+                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] transition-all duration-200"
+                    style={{
+                      color: isActive ? "#6366f1" : "var(--theme-text)",
+                      fontWeight: isActive ? 600 : 500,
+                      opacity: isActive ? 1 : 0.7,
+                      ...(isActive ? {
+                        background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.08))",
+                        border: "1px solid rgba(99,102,241,0.25)",
+                      } : {}),
+                    }}>
+                    <div className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
+                      style={isActive
+                        ? { background: "linear-gradient(135deg, #6366F1, #8B5CF6)", color: "white" }
+                        : { background: "var(--theme-border)", color: "var(--theme-text)" }
+                      }>
                       <Icon className="w-4 h-4" />
                     </div>
                     <span className="text-sm font-medium">{item.label}</span>
@@ -165,36 +177,35 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       </nav>
 
       {/* ── User card + Logout ── */}
-      <div className="p-3 border-t border-white/[0.06]">
+      <div className="p-3" style={{ borderTop: "1px solid var(--theme-border)" }}>
         <div className="flex items-center gap-3 p-3 rounded-2xl mb-2"
-          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+          style={{ background: "var(--theme-border)", border: "1px solid var(--theme-border)" }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0 shadow-md shadow-indigo-500/20"
             style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}>
             {displayInitial}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-white truncate">{displayName}</p>
-            <p className="text-[11px] text-slate-500 truncate">{displayEmail}</p>
+            <p className="text-sm font-semibold truncate" style={{ color: "var(--theme-text)" }}>{displayName}</p>
+            <p className="text-[11px] truncate" style={{ color: "rgba(100,116,139,0.7)" }}>{displayEmail}</p>
           </div>
         </div>
+
         {/* Support button */}
         <a href="https://t.me/astakor9" target="_blank" rel="noopener noreferrer"
-          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] transition-all duration-200 text-sm font-medium"
-          style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.18)", color: "#60A5FA" }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.14)"; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.08)"; }}>
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] transition-all duration-200 text-sm font-medium mb-1"
+          style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.18)", color: "#3b82f6" }}>
           <div className="w-8 h-8 rounded-[10px] flex items-center justify-center text-sm shrink-0"
-            style={{ background: "rgba(59,130,246,0.18)" }}>
+            style={{ background: "rgba(59,130,246,0.15)" }}>
             💬
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-blue-300 font-semibold text-xs">الدعم الفني</p>
-            <p className="text-blue-400/60 text-[10px]">@astakor9</p>
+            <p className="font-semibold text-xs">الدعم الفني</p>
+            <p className="text-[10px] opacity-60">@astakor9</p>
           </div>
         </a>
 
         <button onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] text-red-400 hover:text-red-300 transition-all duration-200 text-sm font-medium group"
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] text-red-500 hover:text-red-600 transition-all duration-200 text-sm font-medium"
           style={{ background: "transparent" }}
           onMouseEnter={e => (e.currentTarget.style.background = "rgba(239,68,68,0.08)")}
           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
@@ -207,7 +218,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* ─── Desktop sidebar: always visible, on the left ─── */}
+      {/* ─── Desktop sidebar: always visible, fixed on right (RTL) ─── */}
       <div className="hidden md:block fixed top-0 right-0 bottom-0 w-64 z-20">
         {sidebarContent}
       </div>

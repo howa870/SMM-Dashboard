@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Sidebar } from "./sidebar";
 import { NotificationsBell } from "./notifications-bell";
+import { ThemeToggle } from "./theme-toggle";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
 import { Spinner } from "./ui/spinner";
@@ -54,13 +55,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col min-h-[100dvh] layout-main md:mr-64">
 
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-6 py-3 border-b border-white/5"
-          style={{ background: "rgba(15,23,42,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }}>
+        <header
+          className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-6 py-3"
+          style={{
+            background: "var(--theme-card)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+            borderBottom: "1px solid var(--theme-border)",
+          }}>
 
           {/* Hamburger — mobile only */}
           <button
-            className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl border border-white/8 text-slate-300 hover:text-white transition-all active:scale-95"
-            style={{ background: "rgba(255,255,255,0.06)" }}
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl transition-all active:scale-95"
+            style={{
+              background: "var(--theme-border)",
+              border: "1px solid var(--theme-border)",
+              color: "var(--theme-text)",
+            }}
             onClick={() => setSidebarOpen(true)}
             aria-label="فتح القائمة"
           >
@@ -69,12 +80,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Mobile logo */}
           <div className="md:hidden flex items-center gap-2">
-            <span className="text-base font-black text-white">Boost Iraq</span>
+            <span className="text-base font-black" style={{ color: "var(--theme-text)" }}>Boost Iraq</span>
             <span>🚀</span>
           </div>
 
           {/* Right actions */}
           <div className="flex items-center gap-2 mr-auto md:mr-0">
+            <ThemeToggle />
             <NotificationsBell />
           </div>
         </header>
@@ -84,7 +96,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
 
-        <footer className="border-t border-white/5 py-4 px-4 text-center text-xs text-slate-600">
+        <footer className="py-4 px-4 text-center text-xs"
+          style={{ borderTop: "1px solid var(--theme-border)", color: "rgba(100,116,139,0.6)" }}>
           © 2026 Boost Iraq — جميع الحقوق محفوظة
         </footer>
       </main>
