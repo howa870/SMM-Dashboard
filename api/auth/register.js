@@ -1,4 +1,4 @@
-import { setCors, supabaseAdmin } from "../_utils.js";
+import { setCors, sbCreateUser } from "../_utils.js";
 
 export default async function handler(req, res) {
   setCors(res);
@@ -13,30 +13,18 @@ export default async function handler(req, res) {
   if (password.length < 6) {
     return res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
   }
-  if (!supabaseAdmin) {
-    return res.status(500).json({ error: "إعدادات Supabase غير مكتملة (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)" });
-  }
 
   try {
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name },
-    });
-
-    if (error) {
-      console.error("[auth/register] Supabase error:", error.message);
-      const msg = (error.message.includes("already") || error.message.includes("registered"))
-        ? "هذا البريد الإلكتروني مسجّل مسبقاً"
-        : error.message;
-      return res.status(400).json({ error: msg });
-    }
-
-    res.status(201).json({ success: true, userId: data.user?.id });
+    const data = await sbCreateUser({ email, password, name });
+    res.status(201).json({ success: true, userId: data?.user?.id ?? data?.id });
 
   } catch (err) {
-    console.error("[auth/register] unexpected:", err.message);
-    res.status(500).json({ error: err.message ?? "خطأ في إنشاء الحساب" });
+    console.error("[auth/register]", err.message, err.body);
+    const body    = err.body || {};
+    const rawMsg  = body.msg || body.error || err.message || "";
+    const arabicMsg = (rawMsg.includes("already") || rawMsg.includes("registered"))
+      ? "هذا البريد الإلكتروني مسجّل مسبقاً"
+      : rawMsg || "خطأ في إنشاء الحساب";
+    res.status(err.status || 400).json({ error: arabicMsg });
   }
 }

@@ -1,4 +1,4 @@
-import { setCors, supabaseAdmin, followizCall, FOLLOWIZ_KEY } from "./_utils.js";
+import { setCors, sbSelect, followizCall, FOLLOWIZ_KEY, SERVICE_KEY } from "./_utils.js";
 
 export default async function handler(req, res) {
   setCors(res);
@@ -7,17 +7,15 @@ export default async function handler(req, res) {
 
   try {
     // ── Try Supabase DB first ─────────────────────────────────────────────────
-    if (supabaseAdmin) {
-      const { data, error } = await supabaseAdmin
-        .from("services")
-        .select("*")
-        .eq("status", "active")
-        .order("id");
-
-      if (!error && data?.length > 0) {
-        return res.json({ ok: true, data, source: "db", count: data.length });
+    if (SERVICE_KEY) {
+      try {
+        const data = await sbSelect("services", "status=eq.active&order=id");
+        if (Array.isArray(data) && data.length > 0) {
+          return res.json({ ok: true, data, source: "db", count: data.length });
+        }
+      } catch (dbErr) {
+        console.warn("[services] Supabase fallback:", dbErr.message);
       }
-      if (error) console.warn("[services] Supabase error:", error.message);
     }
 
     // ── Fallback: Followiz direct ─────────────────────────────────────────────
@@ -28,7 +26,7 @@ export default async function handler(req, res) {
     res.json({ ok: true, data: raw, source: "followiz" });
 
   } catch (err) {
-    console.error("[services] error:", err.message);
+    console.error("[services]", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 }

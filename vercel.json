@@ -1,8 +1,9 @@
 {
   "buildCommand": "pnpm --filter @workspace/smm-panel run build",
   "outputDirectory": "artifacts/smm-panel/dist",
-  "installCommand": "pnpm install && cd api && npm install",
+  "installCommand": "pnpm install",
   "framework": null,
+  "nodeVersion": "20.x",
   "build": {
     "env": {
       "BASE_PATH": "/",
@@ -12,7 +13,6 @@
   },
   "functions": {
     "api/**/*.js": {
-      "runtime": "nodejs20.x",
       "maxDuration": 10
     }
   },

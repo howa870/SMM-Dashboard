@@ -1,4 +1,4 @@
-import { setCors, supabaseAdmin, followizCall, FOLLOWIZ_KEY } from "./_utils.js";
+import { setCors, sbInsert, followizCall, FOLLOWIZ_KEY, SERVICE_KEY } from "./_utils.js";
 
 export default async function handler(req, res) {
   setCors(res);
@@ -26,22 +26,20 @@ export default async function handler(req, res) {
 
     console.log("[order] Followiz result:", result);
 
-    // ── Save to Supabase (optional, non-blocking) ─────────────────────────────
-    if (supabaseAdmin && result.order) {
-      const qty     = Number(quantity);
-      const ppm     = Number(price_per_1000 || 0);
-      const total   = ppm > 0 ? (qty / 1000) * ppm : 0;
+    // ── Save to Supabase (non-blocking) ───────────────────────────────────────
+    if (SERVICE_KEY && result.order) {
+      const qty   = Number(quantity);
+      const ppm   = Number(price_per_1000 || 0);
+      const total = ppm > 0 ? (qty / 1000) * ppm : 0;
 
-      supabaseAdmin.from("orders").insert({
+      sbInsert("orders", {
         provider_service_id: String(svcId),
         provider_order_id:   String(result.order),
         link:                String(link),
         quantity:            qty,
         total_price:         total,
         status:              "pending",
-      }).then(({ error }) => {
-        if (error) console.warn("[order] DB save failed:", error.message);
-      });
+      }).catch(err => console.warn("[order] DB save failed:", err.message));
     }
 
     res.json({
@@ -51,7 +49,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("[order] error:", err.message);
+    console.error("[order]", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 }
