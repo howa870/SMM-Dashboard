@@ -392,6 +392,40 @@ small, .muted {
   display: inline-block;
 }
 
+/* ─── Telegram floating action button ───────────────────────────────────────── */
+.tg-fab {
+  position: fixed;
+  bottom: 22px;
+  left: 22px;
+  width: 56px;
+  height: 56px;
+  background: #0088cc;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(0,136,204,0.40), 0 1px 4px rgba(0,0,0,0.12);
+  z-index: 9999;
+  transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.22s ease;
+  outline: none;
+}
+.tg-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 28px rgba(0,136,204,0.55), 0 2px 6px rgba(0,0,0,0.14);
+}
+.tg-fab:active {
+  transform: scale(0.94);
+  box-shadow: 0 2px 10px rgba(0,136,204,0.35);
+}
+.tg-fab-icon {
+  width: 30px;
+  height: 30px;
+  display: block;
+  flex-shrink: 0;
+}
+
 /* ─── Brand gradient ─────────────────────────────────────────────────────────── */
 .bg-boost-gradient {
   background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);

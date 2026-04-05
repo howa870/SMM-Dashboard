@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand-logo";
+import { TelegramFAB } from "@/components/telegram-fab";
 
 // ─── Animated counter ───────────────────────────────────────────────────────
 function Counter({ to, suffix = "", duration = 2000 }: { to: number; suffix?: string; duration?: number }) {
@@ -587,40 +588,7 @@ export function Landing() {
       </footer>
 
       {/* ── Floating Telegram support button ── */}
-      <a
-        href="https://t.me/astakor9"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="تواصل معنا على تيليغرام"
-        style={{
-          position: "fixed",
-          bottom: 20,
-          left: 20,
-          width: 56,
-          height: 56,
-          background: "#229ED9",
-          borderRadius: "50%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 26,
-          color: "white",
-          boxShadow: "0 8px 24px rgba(34,158,217,0.5)",
-          zIndex: 9999,
-          textDecoration: "none",
-          transition: "transform 0.2s, box-shadow 0.2s",
-        }}
-        onMouseEnter={e => {
-          (e.currentTarget as HTMLAnchorElement).style.transform = "scale(1.1)";
-          (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 12px 32px rgba(34,158,217,0.7)";
-        }}
-        onMouseLeave={e => {
-          (e.currentTarget as HTMLAnchorElement).style.transform = "scale(1)";
-          (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 8px 24px rgba(34,158,217,0.5)";
-        }}
-      >
-        ✈️
-      </a>
+      <TelegramFAB />
     </div>
   );
 }
