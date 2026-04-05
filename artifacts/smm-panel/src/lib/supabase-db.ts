@@ -40,6 +40,8 @@ export type SupabaseOrder = {
   services?: { name: string };
 };
 
+export type OrderStatus = "pending" | "processing" | "completed" | "failed";
+
 export type Profile = {
   id: string;
   name: string | null;
@@ -62,9 +64,9 @@ export type Payment = {
 };
 
 export type PaymentSettings = {
-  key: string;       // 'zain' | 'asiacell' | 'qicard'
-  value: string;     // phone/account number
-  label: string;     // display name
+  key: string;
+  value: string;
+  label: string;
   updated_at: string;
 };
 
@@ -73,11 +75,20 @@ export type Notification = {
   user_id: string;
   title: string;
   message: string;
+  type?: string | null;
   is_read: boolean;
   created_at: string;
 };
 
-// Convert any Supabase error into a proper JS Error with message
+// Status → notification content map
+const ORDER_STATUS_NOTIFICATIONS: Record<OrderStatus, { title: string; message: string; type: string }> = {
+  pending:    { title: "طلب جديد",       message: "تم إنشاء طلبك بنجاح",            type: "order_new" },
+  processing: { title: "قيد التنفيذ",    message: "طلبك الآن قيد التنفيذ",          type: "order_processing" },
+  completed:  { title: "تم التنفيذ ✅",  message: "تم تنفيذ طلبك بنجاح",            type: "order_completed" },
+  failed:     { title: "فشل الطلب ❌",   message: "حدث خطأ أثناء تنفيذ طلبك",       type: "order_failed" },
+};
+
+// Convert any Supabase error into a proper JS Error
 function toError(err: unknown): Error {
   if (err instanceof Error) return err;
   if (err && typeof err === "object" && "message" in err) {
@@ -110,7 +121,6 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 // ─── PLATFORMS ─────────────────────────────────────────────────
-// Routes through backend API to avoid Supabase RLS issues
 
 export async function getPlatforms(): Promise<Platform[]> {
   try {
@@ -124,11 +134,9 @@ export async function getPlatforms(): Promise<Platform[]> {
 }
 
 // ─── SERVICES ─────────────────────────────────────────────────
-// Routes through backend API to avoid Supabase RLS issues
 
 export async function getServices(platformId?: number): Promise<Service[]> {
   try {
-    // Use the SMM services endpoint which has all Followiz data
     const path = platformId ? `/api/smm/services?platformId=${platformId}` : "/api/smm/services";
     type SupabaseService = {
       id: string | number;
@@ -140,7 +148,6 @@ export async function getServices(platformId?: number): Promise<Service[]> {
       price: number | string;
       min_order?: number;
       max_order?: number;
-      // legacy Drizzle format fields (fallback support)
       platformId?: number;
       platformName?: string | null;
       minOrder?: number;
@@ -151,7 +158,6 @@ export async function getServices(platformId?: number): Promise<Service[]> {
       platform_id?: string | null;
     };
     const raw = await apiFetch<SupabaseService[] | { data?: SupabaseService[]; services?: SupabaseService[] }>(path);
-    // Unwrap envelope formats: { ok, data:[...] } or { services:[...] } or plain array
     const data: SupabaseService[] = Array.isArray(raw)
       ? raw
       : (Array.isArray((raw as { data?: SupabaseService[] }).data)
@@ -165,7 +171,6 @@ export async function getServices(platformId?: number): Promise<Service[]> {
       name: s.name,
       description: s.description ?? null,
       category: s.category ?? null,
-      // Supabase format uses "platform" directly; Drizzle format uses "platformName"
       platform: s.platform ?? s.platformName ?? "Other",
       service_type: (s.service_type as Service["service_type"]) ?? null,
       price: typeof s.price === "number" ? s.price : parseFloat(String(s.price)) || 0,
@@ -182,7 +187,6 @@ export async function getServices(platformId?: number): Promise<Service[]> {
 }
 
 // ─── PROFILES ─────────────────────────────────────────────────
-// Routes through backend API to avoid Supabase RLS infinite recursion
 
 export async function getProfile(_userId: string): Promise<Profile | null> {
   try {
@@ -211,7 +215,6 @@ export async function getAdminStats(): Promise<{
     supabase.from("orders").select("id,total_price"),
     supabase.from("payments").select("id,amount,status"),
   ]);
-  // Log errors but don't throw — dashboard should show partial data
   if (profiles.error) console.warn("[DB] getAdminStats profiles:", profiles.error.message);
   if (orders.error) console.warn("[DB] getAdminStats orders:", orders.error.message);
   if (payments.error) console.warn("[DB] getAdminStats payments:", payments.error.message);
@@ -246,7 +249,7 @@ export async function getDailyPaymentStats(): Promise<{ date: string; amount: nu
   return Object.entries(byDay).map(([date, v]) => ({ date, ...v }));
 }
 
-// ─── ORDERS ───────────────────────────────────────────────────
+// ─── ORDERS ────────────────────────────────────────────────────
 
 export async function getUserOrders(_userId: string): Promise<SupabaseOrder[]> {
   try {
@@ -288,6 +291,25 @@ export async function submitOrder(params: {
   return data as SupabaseOrder;
 }
 
+/**
+ * Update an order's status and automatically fire the matching
+ * Arabic notification for that status.
+ */
+export async function updateOrderStatus(
+  orderId: number,
+  userId: string,
+  status: OrderStatus,
+): Promise<void> {
+  const { error } = await supabase
+    .from("orders")
+    .update({ status })
+    .eq("id", orderId);
+  if (error) throw toError(error);
+
+  const notif = ORDER_STATUS_NOTIFICATIONS[status];
+  await addNotification({ user_id: userId, title: notif.title, message: notif.message, type: notif.type });
+}
+
 export async function deductBalance(userId: string, newBalance: number): Promise<void> {
   const { error } = await supabase
     .from("profiles")
@@ -299,7 +321,7 @@ export async function deductBalance(userId: string, newBalance: number): Promise
   }
 }
 
-// ─── PAYMENTS ─────────────────────────────────────────────────
+// ─── PAYMENTS ──────────────────────────────────────────────────
 
 export async function getUserPayments(userId: string): Promise<Payment[]> {
   const { data, error } = await supabase
@@ -370,10 +392,11 @@ export async function approvePayment(paymentId: string, userId: string, amount: 
     .eq("id", paymentId);
   if (paymentError) throw toError(paymentError);
 
-  await createNotification({
+  await addNotification({
     user_id: userId,
     title: "✅ تم شحن رصيدك",
     message: `تم إضافة ${Number(amount).toLocaleString()} IQD إلى حسابك بنجاح.`,
+    type: "payment_approved",
   });
 }
 
@@ -384,10 +407,11 @@ export async function rejectPayment(paymentId: string, userId: string): Promise<
     .eq("id", paymentId);
   if (error) throw toError(error);
 
-  await createNotification({
+  await addNotification({
     user_id: userId,
     title: "❌ تم رفض طلب الشحن",
     message: "تم رفض طلب شحن الرصيد. يرجى التواصل مع الدعم.",
+    type: "payment_rejected",
   });
 }
 
@@ -409,23 +433,59 @@ export async function uploadProofImage(file: File, userId: string): Promise<stri
   return urlData.publicUrl;
 }
 
-// ─── NOTIFICATIONS ────────────────────────────────────────────
+// ─── NOTIFICATIONS ─────────────────────────────────────────────
 
-export async function createNotification(params: {
+/**
+ * Insert a notification row for a given user.
+ * Supports an optional `type` field for categorising notifications.
+ * Falls back without `type` if the column hasn't been migrated yet.
+ */
+export async function addNotification(params: {
   user_id: string;
   title: string;
   message: string;
+  type?: string;
 }): Promise<void> {
   const { error } = await supabase
     .from("notifications")
     .insert({ ...params, is_read: false });
-  if (error) console.warn("[DB] createNotification failed:", error.message);
+
+  if (error) {
+    // Gracefully handle missing 'type' column (pre-migration tables)
+    if (params.type && (error.message?.toLowerCase().includes("type") || error.code === "42703")) {
+      const { user_id, title, message } = params;
+      const { error: retryErr } = await supabase
+        .from("notifications")
+        .insert({ user_id, title, message, is_read: false });
+      if (retryErr) console.warn("[DB] addNotification retry failed:", retryErr.message);
+    } else {
+      console.warn("[DB] addNotification failed:", error.message);
+    }
+  }
 }
 
-export async function getUserNotifications(_userId: string): Promise<Notification[]> {
-  // Notifications are in Supabase which has broken RLS — return empty until migrated
-  return [];
+/** Alias kept for backwards compat */
+export const createNotification = addNotification;
+
+/**
+ * Fetch a user's notifications ordered newest first.
+ */
+export async function getNotifications(userId: string): Promise<Notification[]> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) {
+    console.warn("[DB] getNotifications:", error.message);
+    return [];
+  }
+  return (data || []) as Notification[];
 }
+
+/** Alias kept for backwards compat */
+export const getUserNotifications = getNotifications;
 
 export async function markNotificationsRead(userId: string): Promise<void> {
   const { error } = await supabase
@@ -433,6 +493,14 @@ export async function markNotificationsRead(userId: string): Promise<void> {
     .update({ is_read: true })
     .eq("user_id", userId)
     .eq("is_read", false);
+  if (error) throw toError(error);
+}
+
+export async function markSingleNotificationRead(notifId: string): Promise<void> {
+  const { error } = await supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("id", notifId);
   if (error) throw toError(error);
 }
 

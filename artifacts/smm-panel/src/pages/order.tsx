@@ -16,6 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useProfile } from "@/hooks/useProfile";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { addNotification } from "@/lib/supabase-db";
 
 // ─── Step tracker for order submission ─────────────────────────────────────────
 type Step = "idle" | "deducting" | "sending" | "saving" | "done" | "error";
@@ -158,6 +159,14 @@ export function NewOrder() {
 
       queryClient.invalidateQueries({ queryKey: ["supabase", "profile", supabaseUser.id] });
       queryClient.invalidateQueries({ queryKey: ["supabase", "orders"] });
+
+      // Fire order-created notification
+      addNotification({
+        user_id: supabaseUser.id,
+        title: "طلب جديد",
+        message: "تم إنشاء طلبك بنجاح وهو الآن قيد المعالجة",
+        type: "order_new",
+      }).catch(() => {});
 
       toast({ title: "✅ تم تنفيذ الطلب بنجاح" });
       setLink("");

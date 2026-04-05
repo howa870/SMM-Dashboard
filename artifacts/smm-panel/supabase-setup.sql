@@ -90,6 +90,7 @@ create table if not exists public.notifications (
 -- Safe migrations for existing notifications table
 alter table public.notifications add column if not exists title text;
 alter table public.notifications add column if not exists message text;
+alter table public.notifications add column if not exists type text;
 alter table public.notifications add column if not exists is_read boolean not null default false;
 alter table public.notifications add column if not exists created_at timestamptz default now();
 
