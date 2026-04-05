@@ -1,0 +1,15 @@
+{
+  "name": "smm-price-sync",
+  "version": "1.0.0",
+  "description": "SMM Panel Auto Pricing & Price Monitor with Telegram Notifications",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3"
+  }
+}
