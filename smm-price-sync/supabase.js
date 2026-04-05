@@ -6,36 +6,20 @@
  */
 
 const { createClient } = require("@supabase/supabase-js");
+const fs   = require("fs");
+const path = require("path");
+const { getCurrentMarkup, calcPriceIQD: calcFromConfig } = require("./config");
 
-// ─── نفس صيغة حساب السعر المستخدمة في الموقع ───────
-// السعر بالدولار × المضاعف × 1300 (دينار عراقي لكل دولار)
-const PROFIT_MULTIPLIERS = {
-  Followers: 1.30,
-  Likes:     1.25,
-  Views:     1.20,
-  Comments:  1.40,
-  Other:     1.25,
-};
-
-function detectServiceType(name) {
-  const n = (name || "").toLowerCase();
-  if (/follower|member|subscriber|\bsubs?\b|audience|fan/.test(n)) return "Followers";
-  if (/\blikes?\b|heart|reaction|retweet|\bfave\b/.test(n))        return "Likes";
-  if (/\bviews?\b|watch|\bplays?\b|stream|impression/.test(n))     return "Views";
-  if (/comment|reply|review/.test(n))                               return "Comments";
-  return "Other";
-}
+const DATA_FILE = path.join(__dirname, "data", "prices.json");
 
 /**
- * حساب سعر البيع بالدينار العراقي
- * @param {number} rate - سعر المزود بالدولار
- * @param {string} serviceName - اسم الخدمة (لتحديد النوع)
+ * حساب سعر البيع بالدينار العراقي (يستخدم الربح الديناميكي من config)
+ * @param {number} rate        - سعر المزود بالدولار
+ * @param {string} serviceName - اسم الخدمة (غير مستخدم — للتوافق فقط)
  * @returns {number} - السعر بالدينار العراقي
  */
 function calcPriceIQD(rate, serviceName) {
-  const type = detectServiceType(serviceName);
-  const mult = PROFIT_MULTIPLIERS[type] ?? 1.25;
-  return Math.ceil(Number(rate) * mult * 1300);
+  return calcFromConfig(rate);
 }
 
 // ─── Supabase Client ─────────────────────────────────
@@ -123,10 +107,79 @@ async function updateServicePriceInDb(providerServiceId, newProviderRate, servic
 }
 
 /**
+ * تحديث أسعار جميع الخدمات بنسبة ربح جديدة
+ * يُستدعى من البوت عند تغيير نسبة الربح
+ *
+ * @param {number} newMarkup - المضاعف الجديد (1.5 = 50%)
+ * @returns {Promise<{updated: number, failed: number}>}
+ */
+async function updateAllPricesWithNewMarkup(newMarkup) {
+  const client = getClient();
+
+  if (!client) {
+    console.warn("[Supabase] ⚠️  لا يمكن تحديث الأسعار — Supabase غير مُعدّ");
+    return { updated: 0, failed: 0 };
+  }
+
+  // 1. قراءة أسعار المزود من الملف المحلي
+  let pricesData;
+  try {
+    if (!fs.existsSync(DATA_FILE)) {
+      console.warn("[Supabase] ⚠️  prices.json غير موجود — شغّل فحصاً أولاً");
+      return { updated: 0, failed: 0 };
+    }
+    pricesData = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+  } catch (err) {
+    console.error(`[Supabase] ❌ خطأ في قراءة prices.json: ${err.message}`);
+    return { updated: 0, failed: 0 };
+  }
+
+  const entries = Object.values(pricesData);
+  console.log(`[Supabase] 🔄 تحديث ${entries.length} خدمة بنسبة ربح ${((newMarkup - 1) * 100).toFixed(0)}%...`);
+
+  let updated = 0;
+  let failed  = 0;
+
+  // 2. تحديث الأسعار في Supabase على دفعات (20 في آن واحد)
+  const BATCH = 20;
+  for (let i = 0; i < entries.length; i += BATCH) {
+    const batch = entries.slice(i, i + BATCH);
+
+    await Promise.all(batch.map(async (entry) => {
+      try {
+        const newPriceIQD = Math.ceil(Number(entry.provider_price) * newMarkup * 1300);
+
+        const { error } = await client
+          .from("services")
+          .update({ price: newPriceIQD })
+          .eq("provider_service_id", String(entry.service_id))
+          .eq("provider", "followiz");
+
+        if (error) {
+          failed++;
+        } else {
+          updated++;
+        }
+      } catch {
+        failed++;
+      }
+    }));
+  }
+
+  console.log(`[Supabase] ✅ اكتمل التحديث: ${updated} نجح، ${failed} فشل`);
+  return { updated, failed };
+}
+
+/**
  * فحص ما إذا كان Supabase مُعدّاً
  */
 function isSupabaseConfigured() {
   return !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-module.exports = { updateServicePriceInDb, calcPriceIQD, isSupabaseConfigured };
+module.exports = {
+  updateServicePriceInDb,
+  updateAllPricesWithNewMarkup,
+  calcPriceIQD,
+  isSupabaseConfigured,
+};

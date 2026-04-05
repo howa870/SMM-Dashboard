@@ -22,8 +22,10 @@ require("dotenv").config();
 const cron = require("node-cron");
 
 const { checkAndUpdatePrices, getStats, getSavedPrices } = require("./updater");
-const { notifyStartup } = require("./telegram");
-const { isSupabaseConfigured } = require("./supabase");
+const { notifyStartup }                                  = require("./telegram");
+const { isSupabaseConfigured, updateAllPricesWithNewMarkup } = require("./supabase");
+const { startBot }                                       = require("./bot");
+const { getCurrentMarkup }                               = require("./config");
 
 // ─── التحقق من المتغيرات الأساسية ───────────────────
 
@@ -95,6 +97,12 @@ const job = cron.schedule(
 
 console.log("⏰ تم جدولة الفحص التلقائي كل 5 دقائق");
 console.log("   اضغط Ctrl+C لإيقاف النظام\n");
+
+// ─── تشغيل بوت Telegram ──────────────────────────────
+startBot(config.telegramToken, config.telegramChatId, {
+  getStats,
+  updateAllPricesWithNewMarkup,
+});
 
 // ─── إحصائيات دورية كل ساعة ─────────────────────────
 
