@@ -12,6 +12,7 @@ const path = require("path");
 const { fetchServices }      = require("./services");
 const { calculateSellPrice, calculateChangePercent, isPriceHigher } = require("./pricing");
 const { notifyPriceIncrease } = require("./telegram");
+const { updateServicePriceInDb, isSupabaseConfigured } = require("./supabase");
 
 const DATA_FILE = path.join(__dirname, "data", "prices.json");
 
@@ -144,6 +145,21 @@ async function checkAndUpdatePrices(config) {
       };
       updatedCount++;
       stats.totalUpdates++;
+
+      // ── تحديث السعر في قاعدة بيانات الموقع (Supabase) ──
+      if (isSupabaseConfigured()) {
+        updateServicePriceInDb(serviceId, newProviderPrice, serviceName)
+          .then((result) => {
+            if (result.updated) {
+              console.log(`[Supabase] ✅ الموقع محدّث: خدمة #${serviceId} → ${result.newPriceIQD} IQD`);
+            } else {
+              console.log(`[Supabase] ℹ️  ${result.message}`);
+            }
+          })
+          .catch((err) =>
+            console.error(`[Supabase] ❌ خطأ في تحديث الموقع: ${err.message}`)
+          );
+      }
 
       // ── إرسال إشعار Telegram ──
       if (telegramToken && telegramChatId) {

@@ -23,6 +23,7 @@ const cron = require("node-cron");
 
 const { checkAndUpdatePrices, getStats, getSavedPrices } = require("./updater");
 const { notifyStartup } = require("./telegram");
+const { isSupabaseConfigured } = require("./supabase");
 
 // ─── التحقق من المتغيرات الأساسية ───────────────────
 
@@ -47,6 +48,7 @@ console.log("═".repeat(60));
 console.log(`  📡 API URL:   ${config.baseUrl}`);
 console.log(`  🔑 API Key:   ${config.apiKey.slice(0, 6)}${"*".repeat(Math.max(0, config.apiKey.length - 6))}`);
 console.log(`  💬 Telegram:  ${config.telegramToken ? "✅ مفعّل" : "❌ غير مفعّل"}`);
+console.log(`  🗄️  Supabase:  ${isSupabaseConfigured() ? "✅ مفعّل — الموقع يتحدث تلقائياً" : "⚠️  غير مفعّل (أضف SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY)"}`);
 console.log(`  ⏰ الفحص كل: 5 دقائق`);
 console.log(`  📈 هامش الربح: ${((parseFloat(process.env.MARKUP || "1.5") - 1) * 100).toFixed(0)}%`);
 console.log("═".repeat(60));
