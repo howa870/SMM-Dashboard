@@ -29,6 +29,20 @@ async function adminSetBalance(userId: string, newBalance: number): Promise<void
   if (error) throw error;
 }
 
+async function adminAddBalance(userId: string, amount: number): Promise<void> {
+  const { error } = await supabase.rpc("increment_balance_by_user", { uid: userId, amount_input: amount });
+  if (error) throw error;
+}
+
+async function adminSubtractBalance(userId: string, amount: number): Promise<void> {
+  const { data: profile, error: fetchErr } = await supabase
+    .from("profiles").select("balance").eq("id", userId).single();
+  if (fetchErr) throw fetchErr;
+  const newBal = Math.max(0, Number(profile.balance) - amount);
+  const { error } = await supabase.from("profiles").update({ balance: newBal }).eq("id", userId);
+  if (error) throw error;
+}
+
 export function AdminUsers() {
   const { data: profile, isLoading: profileLoading } = useProfile();
   const [, setLocation] = useLocation();
@@ -53,13 +67,9 @@ export function AdminUsers() {
 
   const { mutateAsync: updateBalance, isPending } = useMutation({
     mutationFn: async ({ userId, balance, op }: { userId: string; balance: number; op: "add" | "subtract" | "set" }) => {
-      const user = users?.find(u => u.id === userId);
-      if (!user) throw new Error("User not found");
-      let newBalance: number;
-      if (op === "set") newBalance = balance;
-      else if (op === "add") newBalance = Number(user.balance) + balance;
-      else newBalance = Math.max(0, Number(user.balance) - balance);
-      await adminSetBalance(userId, newBalance);
+      if (op === "set") await adminSetBalance(userId, balance);
+      else if (op === "add") await adminAddBalance(userId, balance);
+      else await adminSubtractBalance(userId, balance);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supabase", "admin", "users"] });

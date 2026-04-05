@@ -59,9 +59,8 @@ function isAdmin(fromId: number): boolean {
 
 const MAIN_MENU = {
   inline_keyboard: [
-    [{ text: "📥 الطلبات المعلقة", callback_data: "payments"     }],
-    [{ text: "⚙️ تعديل الأرقام",  callback_data: "edit_numbers" }],
-    [{ text: "🔄 تحديث",          callback_data: "refresh"      }],
+    [{ text: "📥 الطلبات المعلقة", callback_data: "pending_payments" }],
+    [{ text: "⚙️ أرقام الدفع",    callback_data: "payment_numbers"  }],
   ],
 };
 
@@ -233,7 +232,7 @@ router.post("/notify-payment", async (req, res) => {
     text,
     parse_mode: "HTML",
     reply_markup: { inline_keyboard: [[
-      { text: "📥 عرض الطلبات", callback_data: "payments" },
+      { text: "📥 عرض الطلبات المعلقة", callback_data: "pending_payments" },
     ]] },
   });
   res.json({ ok: true });
@@ -302,15 +301,15 @@ router.post("/webhook", async (req, res) => {
       return;
     }
 
-    if (data === "payments" || data === "refresh") {
-      await answerCallback(cb.id, "🔄 جاري التحديث…");
+    if (data === "pending_payments") {
+      await answerCallback(cb.id, "🔄 جاري التحميل…");
       await sendPaymentsList(chatId);
       return;
     }
 
-    if (data === "edit_numbers") {
+    if (data === "payment_numbers") {
       await answerCallback(cb.id, "");
-      await sendMessage(chatId, "⚙️ <b>تعديل أرقام الدفع</b>\n\nاختر الرقم الذي تريد تعديله:", { reply_markup: EDIT_NUMBERS_MENU });
+      await sendMessage(chatId, "⚙️ <b>أرقام الدفع</b>\n\nاختر الرقم الذي تريد تعديله:", { reply_markup: EDIT_NUMBERS_MENU });
       return;
     }
 
