@@ -5,6 +5,7 @@ import {
   TrendingUp, Users, Star, ArrowLeft, Lock, Flame
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand-logo";
 
 // ─── Animated counter ───────────────────────────────────────────────────────
 function Counter({ to, suffix = "", duration = 2000 }: { to: number; suffix?: string; duration?: number }) {
@@ -132,7 +133,7 @@ export function Landing() {
               style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}>
               🚀
             </div>
-            <span className="text-lg font-black" style={{ color: "var(--theme-text)" }}>Boost Iraq</span>
+            <BrandLogo className="text-lg" />
           </div>
 
           {/* Nav actions */}

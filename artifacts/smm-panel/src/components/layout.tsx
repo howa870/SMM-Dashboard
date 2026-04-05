@@ -6,6 +6,7 @@ import { useSupabaseAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
 import { Spinner } from "./ui/spinner";
 import { Menu } from "lucide-react";
+import { BrandLogo } from "./brand-logo";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { supabaseUser, isLoading } = useSupabaseAuth();
@@ -80,7 +81,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Mobile logo */}
           <div className="md:hidden flex items-center gap-2">
-            <span className="text-base font-black" style={{ color: "var(--theme-text)" }}>Boost Iraq</span>
+            <BrandLogo className="text-base" />
             <span>🚀</span>
           </div>
 

@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { BrandLogo } from "./brand-logo";
 import { useAuth } from "@/lib/auth-context";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
@@ -73,7 +74,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <div>
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-xl">🚀</span>
-            <span className="text-lg font-black" style={{ color: "var(--theme-text)" }}>Boost Iraq</span>
+            <BrandLogo className="text-lg" />
           </div>
           <p className="text-[11px]" style={{ color: "rgba(100,116,139,0.8)" }}>أفضل خدمات السوشيال في العراق</p>
         </div>
