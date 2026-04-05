@@ -781,6 +781,107 @@ h1, h2, h3, h4, h5, h6 {
   text-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 
+/* ═══════════════════════════════════════════════════
+   .payment-method — Scoped theme-aware payment section
+   Light mode: dark text on light backgrounds
+   Dark mode : white text on dark/translucent backgrounds
+   ═══════════════════════════════════════════════════ */
+
+/* ── Heading ──────────────────────────────────────── */
+.payment-method .pm-heading {
+  color: var(--theme-text);
+}
+
+/* ── Muted / subtext ──────────────────────────────── */
+.payment-method .pm-muted {
+  color: var(--theme-text-muted);
+}
+
+/* ── Labels ───────────────────────────────────────── */
+.payment-method .pm-label {
+  color: var(--theme-text);
+  opacity: 0.85;
+}
+
+/* ── Inputs ───────────────────────────────────────── */
+.payment-method .pm-input {
+  background: var(--theme-input-bg);
+  border: 1px solid var(--theme-border);
+  color: var(--theme-text);
+}
+.payment-method .pm-input::placeholder {
+  color: var(--theme-text-muted);
+}
+
+/* ── Method card labels (over gradient bg) ────────── */
+:root .payment-method .method-card .pm-card-label {
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.dark .payment-method .method-card .pm-card-label {
+  color: #ffffff;
+}
+/* inactive cards in light mode have light bg → dark label */
+:root .payment-method .method-card:not(.active) .pm-card-label {
+  color: #1e1b4b;
+  text-shadow: none;
+}
+
+/* ── Info box (description area) ─────────────────── */
+:root .payment-method .pm-info-box {
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.2);
+}
+.dark .payment-method .pm-info-box {
+  background: rgba(59,130,246,0.08);
+  border: 1px solid rgba(59,130,246,0.15);
+}
+:root .payment-method .pm-info-text {
+  color: #3730a3;
+}
+:root .payment-method .pm-info-text svg {
+  color: #4f46e5;
+}
+.dark .payment-method .pm-info-text {
+  color: #93c5fd;
+}
+.dark .payment-method .pm-info-text svg {
+  color: #60a5fa;
+}
+
+/* ── Wallet/transfer number display ──────────────── */
+:root .payment-method .pm-number {
+  background: rgba(99,102,241,0.06);
+  border: 1px solid rgba(99,102,241,0.2);
+  color: #1e1b4b;
+  font-weight: 700;
+}
+.dark .payment-method .pm-number {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+/* ── Copy button ─────────────────────────────────── */
+:root .payment-method .pm-copy-btn {
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.2);
+  color: #4f46e5;
+}
+:root .payment-method .pm-copy-btn:hover {
+  background: rgba(99,102,241,0.16);
+}
+.dark .payment-method .pm-copy-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #94a3b8;
+}
+.dark .payment-method .pm-copy-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: #e2e8f0;
+}
+
 /* ─── Table cells — readable ─────────────────────────────────────────────────── */
 td { color: var(--theme-text); }
 th { color: var(--theme-text-muted); }

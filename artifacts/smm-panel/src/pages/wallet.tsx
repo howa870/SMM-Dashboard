@@ -286,26 +286,26 @@ export function Wallet() {
             </div>
 
             {/* ══ Charge Form ══ */}
-            <div className="glass-card p-6 space-y-5">
+            <div className="glass-card p-6 space-y-5 payment-method">
               <div>
-                <h2 className="text-white font-bold text-lg">شحن الرصيد</h2>
-                <p className="text-slate-400 text-sm">اختر طريقة الدفع وأرسل طلبك</p>
+                <h2 className="pm-heading font-bold text-lg">شحن الرصيد</h2>
+                <p className="pm-muted text-sm">اختر طريقة الدفع وأرسل طلبك</p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
 
                 {/* Amount input */}
                 <div className="space-y-2">
-                  <Label className="text-slate-300 text-sm font-medium">المبلغ (IQD)</Label>
+                  <Label className="pm-label text-sm font-medium">المبلغ (IQD)</Label>
                   <Input type="number" value={amount}
                     onChange={e => setAmount(e.target.value ? Number(e.target.value) : "")}
-                    className="h-12 rounded-[14px] bg-white/5 border-white/10 text-white font-mono text-base"
+                    className="pm-input h-12 rounded-[14px] font-mono text-base"
                     dir="ltr" placeholder="أدخل المبلغ..." required min={1000} />
                 </div>
 
                 {/* Method Cards */}
                 <div className="space-y-2">
-                  <Label className="text-slate-300 text-sm font-medium">طريقة الدفع</Label>
+                  <Label className="pm-label text-sm font-medium">طريقة الدفع</Label>
                   <div className="grid grid-cols-2 gap-2">
                     {METHOD_ORDER.map(key => {
                       const meta = METHOD_META[key];
@@ -313,7 +313,7 @@ export function Wallet() {
                         <button key={key} type="button" onClick={() => setMethod(key)}
                           className={`method-card ${method === key ? "active" : ""}`}>
                           <div className="text-2xl mb-1.5">{meta.icon}</div>
-                          <div className="text-xs font-bold text-white">{meta.label}</div>
+                          <div className="text-xs font-bold pm-card-label">{meta.label}</div>
                         </button>
                       );
                     })}
@@ -321,19 +321,19 @@ export function Wallet() {
                 </div>
 
                 {/* Selected method info */}
-                <div className="rounded-[16px] bg-blue-500/8 border border-blue-400/15 p-4 space-y-3">
-                  <p className="text-blue-300 text-sm flex items-start gap-2">
-                    <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
+                <div className="pm-info-box rounded-[16px] p-4 space-y-3">
+                  <p className="pm-info-text text-sm flex items-start gap-2">
+                    <Info className="w-4 h-4 mt-0.5 shrink-0" />
                     {selectedMeta.description}
                   </p>
                   {method !== "manual" && (
                     <div className="flex items-center gap-2">
-                      <code className="flex-1 font-mono text-white text-sm bg-white/8 rounded-[12px] px-4 py-2.5 text-center border border-white/8" dir="ltr">
-                        {selectedNumber || <span className="text-slate-500 animate-pulse">جاري التحميل...</span>}
+                      <code className="pm-number flex-1 font-mono text-sm rounded-[12px] px-4 py-2.5 text-center" dir="ltr">
+                        {selectedNumber || <span className="pm-muted animate-pulse">جاري التحميل...</span>}
                       </code>
                       <button type="button" onClick={() => handleCopyNumber(selectedNumber)}
-                        className="w-10 h-10 rounded-[12px] bg-white/8 hover:bg-white/15 text-slate-300 transition-all flex items-center justify-center border border-white/8 hover:border-white/20">
-                        {copiedNumber ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                        className="pm-copy-btn w-10 h-10 rounded-[12px] transition-all flex items-center justify-center">
+                        {copiedNumber ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                       </button>
                     </div>
                   )}
@@ -342,14 +342,14 @@ export function Wallet() {
                 {/* TXID */}
                 {method !== "manual" && (
                   <div className="space-y-2">
-                    <Label className="text-slate-300 text-sm font-medium">رقم العملية (TXID)</Label>
+                    <Label className="pm-label text-sm font-medium">رقم العملية (TXID)</Label>
                     <div className="flex gap-2">
                       <Input value={transactionId} onChange={e => setTransactionId(e.target.value)}
-                        className="h-11 rounded-[14px] bg-white/5 border-white/10 text-white font-mono flex-1"
+                        className="pm-input h-11 rounded-[14px] font-mono flex-1"
                         dir="ltr" placeholder="TXID..." />
                       <button type="button" onClick={handleCopyTxid}
-                        className="px-3 rounded-[14px] bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/30 transition-all flex items-center gap-1.5 text-xs font-bold shrink-0 hover:scale-[1.03]">
-                        {copiedTxid ? <Check className="w-4 h-4 text-green-400" /> : <Sparkles className="w-4 h-4" />}
+                        className="px-3 rounded-[14px] bg-purple-600/20 border border-purple-500/30 text-purple-600 dark:text-purple-300 hover:bg-purple-600/30 transition-all flex items-center gap-1.5 text-xs font-bold shrink-0 hover:scale-[1.03]">
+                        {copiedTxid ? <Check className="w-4 h-4 text-green-500" /> : <Sparkles className="w-4 h-4" />}
                         <span className="hidden sm:block">توليد</span>
                       </button>
                     </div>
