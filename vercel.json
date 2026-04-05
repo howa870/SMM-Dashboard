@@ -3,7 +3,6 @@
   "outputDirectory": "artifacts/smm-panel/dist",
   "installCommand": "pnpm install",
   "framework": null,
-  "nodeVersion": "20.x",
   "build": {
     "env": {
       "BASE_PATH": "/",
