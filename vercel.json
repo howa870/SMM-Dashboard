@@ -11,8 +11,13 @@
     }
   },
   "functions": {
-    "api/telegram.js": { "maxDuration": 30 },
-    "api/**/*.js":     { "maxDuration": 15 }
+    "api/telegram.js":      { "maxDuration": 30 },
+    "api/payment.js":       { "maxDuration": 15 },
+    "api/order.js":         { "maxDuration": 15 },
+    "api/smm/services.js":  { "maxDuration": 15 },
+    "api/auth/jwt-sync.js": { "maxDuration": 10 },
+    "api/auth/login.js":    { "maxDuration": 10 },
+    "api/**/*.js":          { "maxDuration": 15 }
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
@@ -31,8 +36,7 @@
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options",         "value": "DENY" },
-        { "key": "Referrer-Policy",         "value": "strict-origin-when-cross-origin" }
+        { "key": "Referrer-Policy",        "value": "strict-origin-when-cross-origin" }
       ]
     }
   ]
