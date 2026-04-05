@@ -128,11 +128,7 @@ export function Landing() {
         }}>
         <div className="max-w-6xl mx-auto px-5 flex items-center justify-between gap-4">
           {/* Logo */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-[12px] flex items-center justify-center text-xl"
-              style={{ background: "linear-gradient(135deg, #6366F1, #8B5CF6)" }}>
-              🚀
-            </div>
+          <div className="flex items-center">
             <BrandLogo className="text-lg" />
           </div>
 

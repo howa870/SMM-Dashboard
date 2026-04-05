@@ -80,9 +80,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </button>
 
           {/* Mobile logo */}
-          <div className="md:hidden flex items-center gap-2">
+          <div className="md:hidden flex items-center">
             <BrandLogo className="text-base" />
-            <span>🚀</span>
           </div>
 
           {/* Right actions */}

@@ -72,8 +72,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         style={{ borderBottom: "1px solid var(--theme-border)" }}
       >
         <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-xl">🚀</span>
+          <div className="flex items-center mb-0.5">
             <BrandLogo className="text-lg" />
           </div>
           <p className="text-[11px]" style={{ color: "rgba(100,116,139,0.8)" }}>أفضل خدمات السوشيال في العراق</p>

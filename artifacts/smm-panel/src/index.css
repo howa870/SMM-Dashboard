@@ -294,7 +294,46 @@ small, .muted {
 }
 
 /* ─── Boost Iraq brand logo ──────────────────────────────────────────────────── */
-.brand-logo {
+.brand-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: default;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  text-decoration: none;
+}
+.brand-wrapper:hover {
+  transform: scale(1.04);
+}
+
+/* Icon pill */
+.brand-icon-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, rgba(79,70,229,0.12) 0%, rgba(8,145,178,0.10) 100%);
+  border: 1px solid rgba(79,70,229,0.18);
+  flex-shrink: 0;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+.brand-icon-svg {
+  width: 13px;
+  height: 13px;
+  color: #5B5BD6;
+  stroke-width: 2.5;
+  flex-shrink: 0;
+  transition: color 0.3s ease, filter 0.3s ease;
+}
+.brand-wrapper:hover .brand-icon-pill {
+  background: linear-gradient(135deg, rgba(99,102,241,0.20) 0%, rgba(6,182,212,0.14) 100%);
+  border-color: rgba(99,102,241,0.32);
+}
+
+/* Text */
+.brand-text {
   font-weight: 900;
   letter-spacing: -0.02em;
   background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 55%, #0891B2 100%);
@@ -302,32 +341,43 @@ small, .muted {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   display: inline-block;
-  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), filter 0.3s ease;
-  cursor: default;
-}
-.brand-logo:hover {
-  transform: scale(1.06);
+  transition: filter 0.3s ease;
 }
 
-/* Dark mode — shimmer glow + brighter gradient */
-.dark .brand-logo {
+/* Dark mode */
+.dark .brand-icon-pill {
+  background: linear-gradient(135deg, rgba(129,140,248,0.14) 0%, rgba(34,211,238,0.09) 100%);
+  border-color: rgba(129,140,248,0.22);
+}
+.dark .brand-icon-svg {
+  color: #A78BFA;
+  animation: icon-pulse 3s ease-in-out infinite;
+}
+.dark .brand-wrapper:hover .brand-icon-pill {
+  background: linear-gradient(135deg, rgba(167,139,250,0.22) 0%, rgba(34,211,238,0.13) 100%);
+  border-color: rgba(167,139,250,0.4);
+}
+.dark .brand-text {
   background: linear-gradient(135deg, #818CF8 0%, #A78BFA 45%, #22D3EE 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 0 7px rgba(129,140,248,0.55));
   animation: brand-pulse 3s ease-in-out infinite;
 }
-.dark .brand-logo:hover {
-  filter: drop-shadow(0 0 16px rgba(167,139,250,0.9))
-          drop-shadow(0 0 32px rgba(34,211,238,0.45));
-  transform: scale(1.08);
+.dark .brand-wrapper:hover .brand-text {
+  filter: drop-shadow(0 0 12px rgba(167,139,250,0.75))
+          drop-shadow(0 0 24px rgba(34,211,238,0.35));
 }
 
 @keyframes brand-pulse {
-  0%, 100% { filter: drop-shadow(0 0 5px  rgba(129,140,248,0.45)); }
-  50%       { filter: drop-shadow(0 0 13px rgba(167,139,250,0.85))
-                      drop-shadow(0 0 22px rgba(34,211,238,0.35)); }
+  0%, 100% { filter: drop-shadow(0 0 4px  rgba(129,140,248,0.40)); }
+  50%       { filter: drop-shadow(0 0 10px rgba(167,139,250,0.75))
+                      drop-shadow(0 0 18px rgba(34,211,238,0.30)); }
+}
+@keyframes icon-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(167,139,250,0.45)); }
+  50%       { filter: drop-shadow(0 0 7px rgba(167,139,250,0.85))
+                      drop-shadow(0 0 11px rgba(34,211,238,0.35)); }
 }
 
 /* ─── Platform logo icons ────────────────────────────────────────────────────── */
