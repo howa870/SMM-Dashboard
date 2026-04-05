@@ -6,7 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Receipt, Clock, CheckCircle2, XCircle, Info, Upload, Copy, Check, Sparkles, ImageIcon, RefreshCw } from "lucide-react";
+import {
+  Loader2, Receipt, Clock, CheckCircle2, XCircle, Info,
+  Upload, Copy, Check, Sparkles, ImageIcon, RefreshCw,
+  Wallet as WalletIcon, CreditCard, Smartphone, Landmark, Banknote,
+} from "lucide-react";
 import { format } from "date-fns";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserPayments } from "@/hooks/usePaymentsData";
@@ -15,18 +19,19 @@ import { useSupabaseAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Payment } from "@/lib/supabase-db";
+import type { ReactNode } from "react";
 
-const METHOD_META: Record<string, { label: string; icon: string; color: string; description: string }> = {
-  zaincash: { label: "زين كاش",  icon: "💳", color: "from-purple-600 to-purple-800", description: "حوّل المبلغ إلى رقم زين كاش أدناه ثم أدخل رقم العملية." },
-  asiacell: { label: "آسياسيل", icon: "📱", color: "from-orange-500 to-red-600",    description: "حوّل المبلغ إلى رقم آسياسيل أدناه ثم أدخل رقم العملية." },
-  qicard:   { label: "QiCard",  icon: "💰", color: "from-teal-500 to-emerald-700",  description: "حوّل المبلغ إلى رقم QiCard أدناه ثم أدخل رقم العملية." },
-  manual:   { label: "يدوي",    icon: "🏦", color: "from-slate-500 to-slate-700",   description: "تواصل مع فريق الدعم لإتمام عملية التحويل اليدوي." },
+const METHOD_META: Record<string, { label: string; icon: ReactNode; color: string; description: string }> = {
+  zaincash: { label: "زين كاش",  icon: <CreditCard className="w-6 h-6" />,  color: "from-purple-600 to-purple-800", description: "حوّل المبلغ إلى رقم زين كاش أدناه ثم أدخل رقم العملية." },
+  asiacell: { label: "آسياسيل", icon: <Smartphone className="w-6 h-6" />,  color: "from-orange-500 to-red-600",    description: "حوّل المبلغ إلى رقم آسياسيل أدناه ثم أدخل رقم العملية." },
+  qicard:   { label: "QiCard",  icon: <Landmark className="w-6 h-6" />,    color: "from-teal-500 to-emerald-700",  description: "حوّل المبلغ إلى رقم QiCard أدناه ثم أدخل رقم العملية." },
+  manual:   { label: "يدوي",    icon: <Banknote className="w-6 h-6" />,    color: "from-slate-500 to-slate-700",   description: "تواصل مع فريق الدعم لإتمام عملية التحويل اليدوي." },
 };
 
 const STATUS_CONFIG: Record<Payment["status"], { label: string; cls: string; icon: React.ReactNode }> = {
   pending:  { label: "قيد المراجعة", cls: "badge-pending",  icon: <Clock className="w-3.5 h-3.5" /> },
-  approved: { label: "مقبول ✅",     cls: "badge-approved", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
-  rejected: { label: "مرفوض ❌",     cls: "badge-rejected", icon: <XCircle className="w-3.5 h-3.5" /> },
+  approved: { label: "مقبول",         cls: "badge-approved", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+  rejected: { label: "مرفوض",         cls: "badge-rejected", icon: <XCircle className="w-3.5 h-3.5" /> },
 };
 
 const METHOD_ORDER: Payment["method"][] = ["zaincash", "asiacell", "qicard", "manual"];
@@ -77,7 +82,6 @@ export function Wallet() {
   const [liveBalance, setLiveBalance]     = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing]   = useState(false);
 
-  // ── دالة جلب الرصيد الحي من API (service role — لا RLS) ─────────────────
   const fetchLiveBalance = useCallback(async () => {
     if (!supabaseUser) return;
     setIsRefreshing(true);
@@ -91,7 +95,6 @@ export function Wallet() {
       const json = await res.json();
       if (json.ok || json.success) {
         setLiveBalance(Number(json.balance ?? 0));
-        // نحدّث أيضاً الـ cache لتنعكس القيمة في الهيدر
         queryClient.setQueryData(
           ["supabase", "profile", supabaseUser.id],
           (old: Record<string, unknown> | null) =>
@@ -105,14 +108,12 @@ export function Wallet() {
     }
   }, [supabaseUser, queryClient]);
 
-  // ── Polling: جلب الرصيد كل 5 ثوان ───────────────────────────────────────
   useEffect(() => {
     fetchLiveBalance();
     const interval = setInterval(fetchLiveBalance, 5000);
     return () => clearInterval(interval);
   }, [fetchLiveBalance]);
 
-  // ── Realtime: استمع لتحديثات جدول profiles ───────────────────────────────
   useEffect(() => {
     if (!supabaseUser) return;
     const channel = supabase
@@ -175,7 +176,6 @@ export function Wallet() {
 
     setIsSubmitting(true);
     try {
-      // Use API endpoint (service role — bypasses Supabase RLS)
       const { data: session } = await supabase.auth.getSession();
       const token = session?.session?.access_token;
       if (!token) throw new Error("انتهت الجلسة، سجّل الدخول مجدداً");
@@ -194,7 +194,7 @@ export function Wallet() {
       const json = await res.json() as { ok?: boolean; success?: boolean; error?: string };
       if (!json.ok && !json.success) throw new Error(json.error || "فشل إرسال الطلب");
 
-      toast({ title: "✅ تم إرسال طلب الشحن بنجاح", description: "سيتم مراجعته من قِبل الإدارة قريباً." });
+      toast({ title: "تم إرسال طلب الشحن بنجاح", description: "سيتم مراجعته من قِبل الإدارة قريباً." });
       setAmount(""); setTransactionId(""); setNotes(""); setProofFile(null); setProofPreview(null);
       queryClient.invalidateQueries({ queryKey: ["supabase", "payments"] });
     } catch (err: unknown) {
@@ -205,19 +205,23 @@ export function Wallet() {
     }
   };
 
-  // liveBalance من API (أحدث قيمة) أو profile من Supabase كـ fallback
   const balance = liveBalance !== null ? liveBalance : Number(profile?.balance || 0);
   const selectedMeta = METHOD_META[method] || METHOD_META.manual;
   const selectedNumber = paymentNumbers[method] || "—";
 
   return (
     <Layout>
-      <div className="space-y-8 page-enter">
+      <div className="space-y-8 page-enter animate-in fade-in duration-500">
 
         {/* Page Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-white">المحفظة 💰</h1>
-          <p className="text-slate-400 mt-1">إدارة رصيدك وطلبات الشحن</p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+            <WalletIcon className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold db-text">المحفظة</h1>
+            <p className="db-muted text-sm mt-0.5">إدارة رصيدك وطلبات الشحن</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -228,16 +232,14 @@ export function Wallet() {
             {/* ══ Balance Card ══ */}
             <div className="relative rounded-[24px] overflow-hidden animate-balance-glow"
               style={{ background: "linear-gradient(135deg, #6C5CE7 0%, #4f46e5 40%, #00B894 100%)" }}>
-              {/* Decorative blobs */}
               <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
               <div className="absolute -bottom-6 -left-6 w-32 h-32 rounded-full bg-black/20 blur-xl pointer-events-none" />
-              {/* Mesh lines */}
               <div className="absolute inset-0 opacity-10 pointer-events-none"
                 style={{ backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,.15) 0, rgba(255,255,255,.15) 1px, transparent 0, transparent 50%)", backgroundSize: "18px 18px" }} />
 
               <div className="relative p-8 text-center">
                 <div className="w-16 h-16 mx-auto bg-white/20 rounded-full flex items-center justify-center mb-4 shadow-lg">
-                  <span className="text-3xl">💰</span>
+                  <WalletIcon className="w-8 h-8 text-white" />
                 </div>
                 <p className="text-white/70 text-sm font-medium mb-2 tracking-wide uppercase">الرصيد الحالي</p>
                 {profileLoading ? (
@@ -270,14 +272,14 @@ export function Wallet() {
 
             {/* ══ Quick Amounts ══ */}
             <div className="glass-card p-5 space-y-4">
-              <p className="text-slate-300 text-sm font-semibold">مبالغ سريعة</p>
+              <p className="db-muted text-sm font-semibold">مبالغ سريعة</p>
               <div className="grid grid-cols-4 gap-2">
                 {[5000, 10000, 25000, 50000].map(p => (
                   <button key={p} type="button" onClick={() => setAmount(p)}
                     className={`rounded-[14px] py-2.5 text-sm font-bold font-mono transition-all duration-200 border ${
                       amount === p
                         ? "bg-boost-gradient text-white border-transparent shadow-lg shadow-purple-500/30 scale-[1.04]"
-                        : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10 hover:text-white hover:scale-[1.02]"
+                        : "pm-quick-amt hover:scale-[1.02]"
                     }`}>
                     {(p / 1000)}K
                   </button>
@@ -309,10 +311,18 @@ export function Wallet() {
                   <div className="grid grid-cols-2 gap-2">
                     {METHOD_ORDER.map(key => {
                       const meta = METHOD_META[key];
+                      const isSelected = method === key;
                       return (
                         <button key={key} type="button" onClick={() => setMethod(key)}
-                          className={`method-card ${method === key ? "active" : ""}`}>
-                          <div className="text-2xl mb-1.5">{meta.icon}</div>
+                          className={`method-card relative ${isSelected ? "active" : ""}`}>
+                          {isSelected && (
+                            <div className="absolute top-2 left-2 w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center shadow-sm shadow-indigo-500/50">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                          <div className={`mb-1.5 transition-colors ${isSelected ? "text-indigo-500 dark:text-indigo-400" : "pm-card-icon"}`}>
+                            {meta.icon}
+                          </div>
                           <div className="text-xs font-bold pm-card-label">{meta.label}</div>
                         </button>
                       );
@@ -358,7 +368,7 @@ export function Wallet() {
 
                 {/* Proof Upload */}
                 <div className="space-y-2">
-                  <Label className="text-slate-300 text-sm font-medium">
+                  <Label className="pm-label text-sm font-medium">
                     صورة إثبات الدفع <span className="text-red-400 text-xs font-bold">* إجباري</span>
                   </Label>
                   <div onClick={() => fileInputRef.current?.click()}
@@ -370,13 +380,13 @@ export function Wallet() {
                     {proofPreview ? (
                       <div className="relative">
                         <img src={proofPreview} alt="proof" className="w-full max-h-36 object-contain rounded-xl" />
-                        <p className="text-xs text-green-400 mt-2 font-medium">✅ تم اختيار الصورة — انقر للتغيير</p>
+                        <p className="text-xs text-green-400 mt-2 font-medium">تم اختيار الصورة — انقر للتغيير</p>
                       </div>
                     ) : (
                       <div className="py-4">
                         <ImageIcon className="w-10 h-10 mx-auto mb-2 text-slate-500" />
-                        <p className="text-slate-400 text-sm">اضغط لاختيار صورة الإيصال</p>
-                        <p className="text-slate-600 text-xs mt-1">JPG, PNG, WEBP</p>
+                        <p className="db-muted text-sm">اضغط لاختيار صورة الإيصال</p>
+                        <p className="db-muted text-xs mt-1 opacity-60">JPG, PNG, WEBP</p>
                       </div>
                     )}
                   </div>
@@ -385,11 +395,11 @@ export function Wallet() {
 
                 {/* Notes */}
                 <div className="space-y-2">
-                  <Label className="text-slate-300 text-sm font-medium">
-                    ملاحظات <span className="text-slate-500 text-xs">(اختياري)</span>
+                  <Label className="pm-label text-sm font-medium">
+                    ملاحظات <span className="db-muted text-xs">(اختياري)</span>
                   </Label>
                   <Textarea value={notes} onChange={e => setNotes(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white rounded-[14px] resize-none text-sm"
+                    className="pm-input rounded-[14px] resize-none text-sm"
                     rows={2} placeholder="أي معلومات إضافية..." />
                 </div>
 
@@ -408,11 +418,11 @@ export function Wallet() {
           <div className="lg:col-span-3">
             <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-white font-bold text-lg flex items-center gap-2">
+                <h2 className="db-text font-bold text-lg flex items-center gap-2">
                   <Receipt className="w-5 h-5 text-purple-400" />
                   سجل طلبات الشحن
                 </h2>
-                <span className="text-xs text-slate-500 bg-white/5 border border-white/8 rounded-full px-3 py-1">
+                <span className="text-xs db-muted pm-count-badge rounded-full px-3 py-1">
                   {payments?.length || 0} طلب
                 </span>
               </div>
@@ -424,10 +434,14 @@ export function Wallet() {
                   ))}
                 </div>
               ) : !payments?.length ? (
-                <div className="text-center py-20 text-slate-500">
-                  <Receipt className="w-14 h-14 mx-auto mb-4 opacity-20" />
-                  <p className="font-medium">لا توجد طلبات شحن سابقة</p>
-                  <p className="text-sm text-slate-600 mt-1">أرسل طلبك الأول من النموذج</p>
+                <div className="db-empty-state flex flex-col items-center justify-center py-16 text-center gap-4 rounded-2xl">
+                  <div className="db-empty-icon-wrap w-20 h-20 rounded-full flex items-center justify-center">
+                    <Receipt className="w-10 h-10 db-empty-icon" />
+                  </div>
+                  <div>
+                    <p className="db-text font-bold text-lg mb-1">لا توجد طلبات شحن سابقة</p>
+                    <p className="db-muted text-sm">أرسل طلبك الأول من النموذج على اليسار</p>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -440,25 +454,25 @@ export function Wallet() {
                       "bg-yellow-500/15 border-yellow-500/20";
                     return (
                       <div key={pay.id}
-                        className="flex items-center gap-4 p-4 rounded-[18px] bg-white/4 border border-white/7 hover:bg-white/7 hover:border-white/12 transition-all duration-200 card-hover">
-                        <div className={`w-12 h-12 rounded-[14px] shrink-0 flex items-center justify-center text-xl border ${iconBg}`}>
+                        className="flex items-center gap-4 p-4 rounded-[18px] pm-history-row transition-all duration-200">
+                        <div className={`w-12 h-12 rounded-[14px] shrink-0 flex items-center justify-center border ${iconBg} pm-method-icon`}>
                           {mMeta.icon}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-black text-white font-mono text-base">
+                            <span className="font-black db-text font-mono text-base">
                               IQD {Number(pay.amount).toLocaleString()}
                             </span>
-                            <span className={cfg.cls}>
+                            <span className={`${cfg.cls} flex items-center gap-1`}>
                               {cfg.icon}{cfg.label}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <span className="text-xs text-slate-400">{mMeta.label}</span>
+                            <span className="text-xs db-muted">{mMeta.label}</span>
                             {pay.transaction_id && (
-                              <span className="text-xs font-mono text-slate-500">• {pay.transaction_id}</span>
+                              <span className="text-xs font-mono db-muted">• {pay.transaction_id}</span>
                             )}
-                            <span className="text-xs text-slate-600 font-mono" dir="ltr">
+                            <span className="text-xs db-muted font-mono" dir="ltr">
                               {format(new Date(pay.created_at), "yyyy/MM/dd HH:mm")}
                             </span>
                           </div>

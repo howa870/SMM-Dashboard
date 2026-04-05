@@ -6,7 +6,7 @@ import { useProfile } from "@/hooks/useProfile";
 import {
   LayoutDashboard, List, ShoppingCart, History,
   Wallet, LogOut, ShieldAlert, Users, CreditCard,
-  Activity, ArrowLeftRight, Settings, ChevronLeft, X
+  Activity, ArrowLeftRight, Settings, ChevronLeft, X, MessageCircle,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -94,8 +94,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1))",
           border: "1px solid rgba(99,102,241,0.25)",
         }}>
-        <div className="w-9 h-9 rounded-[12px] flex items-center justify-center text-lg shrink-0"
-          style={{ background: "rgba(99,102,241,0.15)" }}>💰</div>
+        <div className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0"
+          style={{ background: "rgba(99,102,241,0.15)" }}>
+          <Wallet className="w-5 h-5 text-indigo-400" />
+        </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs" style={{ color: "rgba(100,116,139,0.8)" }}>رصيدي</p>
           <p className="text-sm font-black font-mono leading-tight" style={{ color: "var(--theme-text)" }}>
@@ -194,9 +196,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <a href="https://t.me/astakor9" target="_blank" rel="noopener noreferrer"
           className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] transition-all duration-200 text-sm font-medium mb-1"
           style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.18)", color: "#3b82f6" }}>
-          <div className="w-8 h-8 rounded-[10px] flex items-center justify-center text-sm shrink-0"
+          <div className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
             style={{ background: "rgba(59,130,246,0.15)" }}>
-            💬
+            <MessageCircle className="w-4 h-4 text-blue-400" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-xs">الدعم الفني</p>

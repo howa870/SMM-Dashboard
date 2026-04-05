@@ -1140,3 +1140,261 @@ th { color: var(--theme-text-muted); }
   h2 { font-size: 1.4rem; }
   h3 { font-size: 1.15rem; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   Mobile Bottom Navigation
+   ══════════════════════════════════════════════════════════════════ */
+.mob-nav {
+  background: var(--theme-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--theme-border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+}
+.dark .mob-nav {
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+}
+
+.mob-nav-item {
+  text-decoration: none;
+  color: inherit;
+}
+
+.mob-nav-icon-wrap {
+  width: 2.25rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.625rem;
+  transition: all 0.2s;
+}
+.mob-nav-icon-wrap--active {
+  background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(139,92,246,0.14));
+}
+.dark .mob-nav-icon-wrap--active {
+  background: linear-gradient(135deg, rgba(99,102,241,0.28), rgba(139,92,246,0.22));
+}
+
+.mob-nav-icon--active { color: #6366f1; }
+.mob-nav-icon--idle   { color: rgba(100,116,139,0.7); }
+.dark .mob-nav-icon--idle { color: rgba(148,163,184,0.6); }
+
+.mob-nav-label--active { color: #6366f1; }
+.mob-nav-label--idle   { color: rgba(100,116,139,0.75); }
+.dark .mob-nav-label--idle { color: rgba(148,163,184,0.6); }
+
+/* ══════════════════════════════════════════════════════════════════
+   Order Progress Stepper
+   ══════════════════════════════════════════════════════════════════ */
+.order-progress-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+.order-progress-dot--done {
+  background: #22c55e;
+  color: white;
+}
+.order-progress-dot--active {
+  background: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.25);
+}
+.order-progress-dot--idle {
+  background: rgba(100,116,139,0.3);
+}
+.dark .order-progress-dot--idle {
+  background: rgba(255,255,255,0.15);
+}
+
+.order-progress-label--active { color: #6366f1; }
+.order-progress-label--idle   { color: rgba(100,116,139,0.6); }
+.dark .order-progress-label--idle { color: rgba(148,163,184,0.5); }
+
+.order-progress-line--done { background: #22c55e; }
+.order-progress-line--idle { background: rgba(100,116,139,0.2); }
+.dark .order-progress-line--idle { background: rgba(255,255,255,0.1); }
+
+/* ══════════════════════════════════════════════════════════════════
+   Low Balance Warning Banner
+   ══════════════════════════════════════════════════════════════════ */
+.db-low-balance-banner {
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 1rem;
+}
+.dark .db-low-balance-banner {
+  background: rgba(245,158,11,0.08);
+  border-color: rgba(245,158,11,0.25);
+}
+.db-low-balance-title { color: #92400e; }
+.dark .db-low-balance-title { color: #fbbf24; }
+.db-low-balance-sub   { color: rgba(120,53,15,0.7); }
+.dark .db-low-balance-sub { color: rgba(251,191,36,0.65); }
+.db-low-balance-btn {
+  background: rgba(245,158,11,0.15);
+  border: 1px solid rgba(245,158,11,0.35);
+  color: #92400e;
+  border-radius: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.dark .db-low-balance-btn {
+  background: rgba(245,158,11,0.18);
+  border-color: rgba(245,158,11,0.4);
+  color: #fbbf24;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Empty States
+   ══════════════════════════════════════════════════════════════════ */
+.db-empty-state {
+  background: var(--card-bg);
+  border: 1.5px dashed var(--border-color);
+  border-radius: 1rem;
+}
+.dark .db-empty-state {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.1);
+}
+.db-empty-icon-wrap {
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.15);
+}
+.dark .db-empty-icon-wrap {
+  background: rgba(99,102,241,0.1);
+  border-color: rgba(99,102,241,0.2);
+}
+.db-empty-icon {
+  color: rgba(100,116,139,0.5);
+}
+.dark .db-empty-icon {
+  color: rgba(148,163,184,0.4);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Order Card (theme-aware)
+   ══════════════════════════════════════════════════════════════════ */
+.db-order-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.db-order-card:hover {
+  box-shadow: 0 2px 16px rgba(99,102,241,0.08);
+  border-color: rgba(99,102,241,0.18);
+}
+.dark .db-order-card {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.08);
+}
+.dark .db-order-card:hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(99,102,241,0.25);
+}
+
+.db-order-expanded {
+  border-top: 1px solid var(--border-color);
+}
+.dark .db-order-expanded {
+  border-color: rgba(255,255,255,0.08);
+}
+
+.db-order-divider {
+  border-right: 1px solid var(--border-color);
+}
+.dark .db-order-divider {
+  border-color: rgba(255,255,255,0.08);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Misc UI helpers
+   ══════════════════════════════════════════════════════════════════ */
+.db-refresh-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--theme-text);
+}
+.db-refresh-btn:hover {
+  background: rgba(99,102,241,0.08);
+  border-color: rgba(99,102,241,0.2);
+}
+.dark .db-refresh-btn {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+}
+.dark .db-refresh-btn:hover {
+  background: rgba(255,255,255,0.09);
+}
+
+.db-expand-btn {
+  background: var(--theme-border);
+  color: var(--theme-text);
+  opacity: 0.7;
+}
+.db-expand-btn:hover { opacity: 1; }
+
+.db-border-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--theme-text);
+}
+.dark .db-border-btn {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.1);
+}
+
+/* Wallet payment method card icon color */
+.pm-card-icon { color: rgba(100,116,139,0.8); }
+.dark .pm-card-icon { color: rgba(148,163,184,0.7); }
+
+/* Wallet history row */
+.pm-history-row {
+  background: rgba(0,0,0,0.02);
+  border: 1px solid var(--border-color);
+}
+.pm-history-row:hover {
+  background: rgba(99,102,241,0.04);
+  border-color: rgba(99,102,241,0.15);
+}
+.dark .pm-history-row {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.06);
+}
+.dark .pm-history-row:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(99,102,241,0.2);
+}
+
+.pm-method-icon { color: rgba(100,116,139,0.8); }
+.dark .pm-method-icon { color: rgba(148,163,184,0.7); }
+
+/* Quick amounts button non-selected state */
+.pm-quick-amt {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.08);
+  color: rgba(71,85,105,0.9);
+}
+.dark .pm-quick-amt {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+  color: rgba(148,163,184,0.9);
+}
+
+/* Payment count badge */
+.pm-count-badge {
+  background: rgba(0,0,0,0.04);
+  border: 1px solid var(--border-color);
+}
+.dark .pm-count-badge {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.08);
+}

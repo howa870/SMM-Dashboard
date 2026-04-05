@@ -8,6 +8,7 @@ import { Spinner } from "./ui/spinner";
 import { Menu } from "lucide-react";
 import { TelegramFAB } from "./telegram-fab";
 import { BrandLogo } from "./brand-logo";
+import { MobileBottomNav } from "./mobile-bottom-nav";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { supabaseUser, isLoading } = useSupabaseAuth();
@@ -92,16 +93,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page content */}
-        <div className="flex-1 p-4 md:p-6 lg:p-8 w-full max-w-7xl mx-auto">
+        {/* Page content — extra bottom padding on mobile for bottom nav */}
+        <div className="flex-1 p-4 md:p-6 lg:p-8 w-full max-w-7xl mx-auto pb-20 md:pb-8">
           {children}
         </div>
 
-        <footer className="py-4 px-4 text-center text-xs"
+        <footer className="hidden md:block py-4 px-4 text-center text-xs"
           style={{ borderTop: "1px solid var(--theme-border)", color: "rgba(100,116,139,0.6)" }}>
           © 2026 Boost Iraq — جميع الحقوق محفوظة
         </footer>
       </main>
+
+      {/* ── Mobile bottom navigation ── */}
+      <MobileBottomNav />
 
       {/* ── Floating Telegram support button ── */}
       <TelegramFAB />

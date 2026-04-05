@@ -1,7 +1,7 @@
 import { Layout } from "@/components/layout";
 import { translateServiceName } from "@/lib/translate-service";
 import { useSearch, useLocation } from "wouter";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +103,8 @@ export function NewOrder() {
   const { supabaseUser }  = useSupabaseAuth();
   const { data: profile } = useProfile();
 
+  const lastSubmitRef = useRef<number>(0);
+
   const balance        = Number(profile?.balance || 0);
   const isProvider     = sProvider === "followiz";
   const serviceIdNum   = Number(serviceId);
@@ -126,6 +128,14 @@ export function NewOrder() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supabaseUser || !serviceId || serviceId === "0" || !link || !quantity) return;
+
+    const now = Date.now();
+    if (now - lastSubmitRef.current < 5000) {
+      toast({ variant: "destructive", title: "يرجى الانتظار لحظة", description: "يمكنك تقديم طلب واحد كل 5 ثوان فقط" });
+      return;
+    }
+    lastSubmitRef.current = now;
+
     if (!validateQty(Number(quantity))) return;
     if (!hasEnoughBalance) {
       toast({ variant: "destructive", title: "رصيد غير كافٍ",

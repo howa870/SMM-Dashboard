@@ -5,7 +5,10 @@ import { useProfile } from "@/hooks/useProfile";
 import { useUserOrders } from "@/hooks/useOrdersData";
 import { usePlatforms, useServices } from "@/hooks/useServicesData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Wallet, Clock, CheckCircle, ShoppingCart, Loader2, Zap, Shield, Headphones, Star, TrendingUp } from "lucide-react";
+import {
+  Plus, Wallet, Clock, CheckCircle, ShoppingCart, Zap, Shield,
+  Headphones, Star, TrendingUp, Flame, AlertTriangle, X, ShieldCheck,
+} from "lucide-react";
 import { Link } from "wouter";
 import {
   FaInstagram, FaTiktok, FaTelegram, FaFacebook,
@@ -13,7 +16,7 @@ import {
   FaSpotify, FaSoundcloud
 } from "react-icons/fa6";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 function getPlatformIcon(name: string) {
   const n = name.toLowerCase();
@@ -34,7 +37,7 @@ const LIVE_ACTIVITY = [
   { icon: "🔥", text: "شخص من بغداد اشترى 1000 متابع انستغرام", time: "قبل دقيقتين" },
   { icon: "⭐", text: "طلب جديد: 500 لايك تيك توك — تم بنجاح!", time: "قبل 5 دقائق" },
   { icon: "🔥", text: "شخص من البصرة اشترى 5000 مشاهدة يوتيوب", time: "قبل 7 دقائق" },
-  { icon: "⭐", text: "طلب متابعين انستغرام 2000 — تسليم فوري ✅", time: "قبل 10 دقائق" },
+  { icon: "⭐", text: "طلب متابعين انستغرام 2000 — تسليم فوري", time: "قبل 10 دقائق" },
   { icon: "🔥", text: "شخص من الموصل اشترى متابعين تيك توك", time: "قبل 12 دقيقة" },
   { icon: "⭐", text: "طلب جديد: 10,000 مشاهدة يوتيوب — نجح!", time: "قبل 15 دقيقة" },
   { icon: "🔥", text: "شخص من أربيل اشترى لايكات انستغرام", time: "قبل 18 دقيقة" },
@@ -70,29 +73,87 @@ function LiveActivityBanner() {
   );
 }
 
+function useCountUp(target: number, duration = 900): number {
+  const [count, setCount] = useState(0);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (target === 0) { setCount(0); return; }
+    const startTime = performance.now();
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(target * eased));
+      if (progress < 1) rafRef.current = requestAnimationFrame(animate);
+      else setCount(target);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target, duration]);
+
+  return count;
+}
+
+function StatNumber({ value, loading, className }: { value: number; loading: boolean; className?: string }) {
+  const animated = useCountUp(loading ? 0 : value);
+  if (loading) return <Skeleton className="h-8 w-16 db-skeleton" />;
+  return <div className={className ?? "text-2xl font-bold font-mono db-stat-number"}>{animated.toLocaleString()}</div>;
+}
+
+function BalanceDisplay({ balance, loading }: { balance: number; loading: boolean }) {
+  const animated = useCountUp(loading ? 0 : balance);
+  if (loading) return <Skeleton className="h-10 w-32 db-skeleton" />;
+  return <div className="db-balance-number text-3xl font-bold font-mono">IQD {animated.toLocaleString()}</div>;
+}
+
+const LOW_BALANCE_THRESHOLD = 3000;
+
 export function Dashboard() {
   const { supabaseUser } = useSupabaseAuth();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: orders, isLoading: ordersLoading } = useUserOrders();
   const { data: platforms, isLoading: platformsLoading } = usePlatforms();
   const { data: allServices, isLoading: servicesLoading } = useServices();
+  const [dismissedLowBalance, setDismissedLowBalance] = useState(false);
 
   const balance = Number(profile?.balance || 0);
   const displayName = profile?.name || supabaseUser?.email?.split("@")[0] || "مستخدم";
 
-  const processingOrders = orders?.filter(o => o.status === "processing").length || 0;
   const completedOrders = orders?.filter(o => o.status === "completed").length || 0;
-  const pendingOrders = orders?.filter(o => o.status === "pending").length || 0;
   const totalOrders = orders?.length || 0;
 
   const popularServices = allServices?.slice(0, 5) || [];
 
+  const showLowBalance = !profileLoading && balance > 0 && balance < LOW_BALANCE_THRESHOLD && !dismissedLowBalance;
+
   return (
     <Layout>
-      <div className="db-page space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="db-page space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
         {/* Live activity ticker */}
         <LiveActivityBanner />
+
+        {/* Low balance warning */}
+        {showLowBalance && (
+          <div className="db-low-balance-banner flex items-center gap-3 rounded-2xl px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold db-low-balance-title">رصيدك منخفض</p>
+              <p className="text-xs db-low-balance-sub">رصيدك الحالي {balance.toLocaleString()} IQD — يُنصح بشحن رصيدك لتجنب توقف الطلبات</p>
+            </div>
+            <Link href="/wallet"
+              className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-xl db-low-balance-btn transition-all hover:scale-105">
+              شحن الآن
+            </Link>
+            <button
+              onClick={() => setDismissedLowBalance(true)}
+              className="shrink-0 opacity-50 hover:opacity-100 transition-opacity"
+              aria-label="إغلاق">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Hero CTA */}
         <div className="db-hero relative overflow-hidden rounded-3xl p-6 md:p-8">
@@ -106,7 +167,7 @@ export function Dashboard() {
             <Link href="/services"
               className="shrink-0 inline-flex items-center gap-2.5 bg-gradient-to-l from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white px-6 py-3.5 rounded-2xl text-base font-bold shadow-lg shadow-purple-500/30 transition-all hover:scale-105 hover:shadow-purple-500/50">
               <Zap className="w-5 h-5" />
-              🚀 ابدأ زيادة متابعينك الآن
+              ابدأ زيادة متابعينك الآن
             </Link>
           </div>
         </div>
@@ -138,7 +199,7 @@ export function Dashboard() {
 
         {/* Guarantee badge */}
         <div className="db-badge-emerald flex items-center justify-center gap-3 rounded-2xl px-4 py-3">
-          <span className="text-2xl">💯</span>
+          <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0" />
           <p className="db-emerald-text font-bold text-sm">بدون باسورد — آمن 100% على حسابك</p>
           <Shield className="w-4 h-4 text-emerald-500 shrink-0" />
         </div>
@@ -152,11 +213,7 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="flex justify-between items-end">
-                {profileLoading ? (
-                  <Skeleton className="h-10 w-32 db-skeleton" />
-                ) : (
-                  <div className="db-balance-number text-3xl font-bold font-mono">IQD {balance.toLocaleString()}</div>
-                )}
+                <BalanceDisplay balance={balance} loading={profileLoading} />
                 <Link href="/wallet"
                   className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-lg shadow-purple-500/20">
                   <Plus className="w-4 h-4" /> شحن
@@ -166,8 +223,8 @@ export function Dashboard() {
           </Card>
 
           {[
-            { label: "إجمالي الطلبات", value: totalOrders, cls: "db-stat-number", icon: <ShoppingCart className="h-4 w-4 db-icon-muted" /> },
-            { label: "مكتملة", value: completedOrders, cls: "db-stat-number-green", icon: <CheckCircle className="h-4 w-4 text-green-500" /> },
+            { label: "إجمالي الطلبات", value: totalOrders, loading: ordersLoading, icon: <ShoppingCart className="h-4 w-4 db-icon-muted" /> },
+            { label: "مكتملة", value: completedOrders, loading: ordersLoading, className: "text-2xl font-bold font-mono db-stat-number-green", icon: <CheckCircle className="h-4 w-4 text-green-500" /> },
           ].map(item => (
             <Card key={item.label} className="db-stat-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -175,9 +232,7 @@ export function Dashboard() {
                 {item.icon}
               </CardHeader>
               <CardContent>
-                {ordersLoading ? <Skeleton className="h-8 w-16 db-skeleton" /> : (
-                  <div className={`text-2xl font-bold font-mono ${item.cls}`}>{item.value}</div>
-                )}
+                <StatNumber value={item.value} loading={item.loading} className={item.className} />
               </CardContent>
             </Card>
           ))}
@@ -209,7 +264,7 @@ export function Dashboard() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-xl">🔥</span>
+              <Flame className="w-5 h-5 text-orange-500" />
               <h2 className="text-xl font-bold db-text">الأكثر طلباً</h2>
               <span className="text-xs db-hot-badge px-2 py-0.5 rounded-full font-medium">
                 الأعلى مبيعاً
@@ -227,8 +282,10 @@ export function Dashboard() {
               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 rounded-2xl db-skeleton" />)}
             </div>
           ) : !popularServices.length ? (
-            <div className="text-center py-8 db-muted db-empty-card border rounded-2xl">
-              <p>لا توجد خدمات متاحة حالياً</p>
+            <div className="db-empty-state flex flex-col items-center justify-center py-12 rounded-2xl text-center gap-3">
+              <ShoppingCart className="w-10 h-10 db-empty-icon" />
+              <p className="db-text font-semibold">لا توجد خدمات متاحة حالياً</p>
+              <p className="db-muted text-sm">سيتم إضافة الخدمات قريباً</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -283,8 +340,9 @@ export function Dashboard() {
               {[...Array(10)].map((_, i) => <Skeleton key={i} className="h-32 rounded-2xl db-skeleton" />)}
             </div>
           ) : !platforms?.length ? (
-            <div className="text-center py-12 db-muted">
-              <p>لا توجد منصات مفعّلة بعد.</p>
+            <div className="db-empty-state flex flex-col items-center justify-center py-12 rounded-2xl text-center gap-3">
+              <TrendingUp className="w-10 h-10 db-empty-icon" />
+              <p className="db-text font-semibold">لا توجد منصات مفعّلة بعد</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -306,7 +364,18 @@ export function Dashboard() {
         </div>
 
         {/* Recent orders */}
-        {!!orders?.length && (
+        {ordersLoading ? null : !orders?.length ? (
+          <div className="db-empty-state flex flex-col items-center justify-center py-12 rounded-2xl text-center gap-3">
+            <Clock className="w-12 h-12 db-empty-icon" />
+            <p className="db-text font-semibold text-lg">لا توجد طلبات بعد</p>
+            <p className="db-muted text-sm">ابدأ بطلب خدمتك الأولى الآن</p>
+            <Link href="/services"
+              className="mt-2 inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20 hover:scale-105 transition-all">
+              <Zap className="w-4 h-4" />
+              تصفح الخدمات
+            </Link>
+          </div>
+        ) : (
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold db-text">آخر الطلبات</h2>

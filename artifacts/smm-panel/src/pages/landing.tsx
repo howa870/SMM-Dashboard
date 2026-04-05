@@ -182,7 +182,7 @@ export function Landing() {
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
           }}>
-            خلال دقائق 🚀
+            خلال دقائق
           </span>
         </h1>
 
@@ -191,9 +191,10 @@ export function Landing() {
           متابعين، لايكات، مشاهدات حقيقية بأسعار رخيصة وبسرعة خيالية
         </p>
 
-        <p className="text-sm text-emerald-400 mb-10 font-semibold"
+        <p className="text-sm text-emerald-400 mb-10 font-semibold flex items-center justify-center gap-2"
           style={{ animation: "fadeInUp 0.7s ease 0.3s both" }}>
-          ✅ بدون باسورد — آمن 100% — تسليم فوري
+          <CheckCircle className="w-4 h-4" />
+          بدون باسورد — آمن 100% — تسليم فوري
         </p>
 
         {/* CTA Buttons */}
