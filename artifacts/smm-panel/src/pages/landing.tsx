@@ -4,7 +4,6 @@ import {
   Zap, Shield, Wallet, Smartphone, CheckCircle,
   TrendingUp, Users, Star, ArrowLeft, Lock, Flame
 } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 // ─── Animated counter ───────────────────────────────────────────────────────
 function Counter({ to, suffix = "", duration = 2000 }: { to: number; suffix?: string; duration?: number }) {
@@ -137,7 +136,6 @@ export function Landing() {
 
           {/* Nav actions */}
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <Link href="/login"
               className="hidden sm:flex px-4 py-2 rounded-xl text-sm font-semibold transition-all"
               style={{ color: "var(--theme-text)", opacity: 0.75 }}

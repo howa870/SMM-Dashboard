@@ -2,8 +2,6 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -138,75 +136,10 @@
 }
 
 /* ═══════════════════════════════════════════════════
-   DARK MODE — applied when <html class="dark">
-   ═══════════════════════════════════════════════════ */
-.dark {
-  --background: 215 71% 11%;
-  --foreground: 210 36% 90%;
-
-  --card: 217 35% 17%;
-  --card-foreground: 210 36% 90%;
-  --card-border: 217 35% 23%;
-
-  --popover: 217 35% 14%;
-  --popover-foreground: 210 36% 90%;
-  --popover-border: 217 35% 22%;
-
-  --primary: 239 84% 67%;
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 217 35% 22%;
-  --secondary-foreground: 210 36% 90%;
-
-  --muted: 217 35% 19%;
-  --muted-foreground: 215 20% 52%;
-
-  --accent: 192 91% 43%;
-  --accent-foreground: 0 0% 100%;
-
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 217 35% 23%;
-  --input: 217 35% 20%;
-  --ring: 239 84% 67%;
-
-  --sidebar: 215 71% 9%;
-  --sidebar-foreground: 210 36% 90%;
-  --sidebar-border: 217 35% 19%;
-  --sidebar-primary: 239 84% 67%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 217 35% 17%;
-  --sidebar-accent-foreground: 210 36% 90%;
-  --sidebar-ring: 239 84% 67%;
-
-  --chart-1: 239 84% 67%;
-  --chart-2: 192 91% 43%;
-  --chart-3: 142 76% 36%;
-  --chart-4: 38 92% 50%;
-  --chart-5: 0 72% 51%;
-
-  /* ── Custom semantic vars (dark) ── */
-  --theme-bg:          #020617;
-  --theme-text:        #f1f5f9;
-  --theme-text-muted:  #94a3b8;
-  --theme-text-faint:  #64748b;
-  --theme-card:        rgba(15,23,42,0.88);
-  --theme-card-solid:  #1e293b;
-  --theme-border:      rgba(255,255,255,0.10);
-  --theme-primary:     #818cf8;
-  --theme-glow-a:      rgba(99,102,241,0.14);
-  --theme-glow-b:      rgba(6,182,212,0.09);
-  --theme-surface:     rgba(15,23,42,0.92);
-  --theme-input-bg:    rgba(15,23,42,0.75);
-  --theme-shadow:      rgba(0,0,0,0.45);
-}
-
-/* ═══════════════════════════════════════════════════
    GLOBAL BASE
    ═══════════════════════════════════════════════════ */
 html {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 @layer base {
@@ -361,11 +294,8 @@ html {
 
 /* ─── Status badges ──────────────────────────────────────────────────────────── */
 .badge-pending  { background:rgba(234,179,8,0.12);  color:#d97706; border:1px solid rgba(234,179,8,0.25);  border-radius:999px; padding:3px 10px; font-size:.73rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
-.dark .badge-pending  { color:#fde047; }
 .badge-approved { background:rgba(34,197,94,0.12);  color:#16a34a; border:1px solid rgba(34,197,94,0.25);  border-radius:999px; padding:3px 10px; font-size:.73rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
-.dark .badge-approved { color:#4ade80; }
 .badge-rejected { background:rgba(239,68,68,0.12);  color:#dc2626; border:1px solid rgba(239,68,68,0.25);  border-radius:999px; padding:3px 10px; font-size:.73rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
-.dark .badge-rejected { color:#f87171; }
 
 /* ─── Method selector cards ──────────────────────────────────────────────────── */
 .method-card {
@@ -597,14 +527,14 @@ body {
 .text-faint-theme  { color: var(--theme-text-faint) !important; }
 
 /* Light mode: ensure Tailwind slate/gray classes are dark enough */
-:root .text-slate-400,
-:root .text-slate-500,
-:root .text-gray-400,
-:root .text-gray-500 {
+.text-slate-400,
+.text-slate-500,
+.text-gray-400,
+.text-gray-500 {
   color: var(--theme-text-muted) !important;
 }
-:root .text-slate-300,
-:root .text-gray-300 {
+.text-slate-300,
+.text-gray-300 {
   color: var(--theme-text-muted) !important;
 }
 
@@ -691,9 +621,9 @@ button[class*="primary"] {
 }
 
 /* ─── Status badge contrast (light mode fix) ─────────────────────────────────── */
-:root .badge-pending  { color: #92400e; background: rgba(234,179,8,0.12); }
-:root .badge-approved { color: #166534; background: rgba(34,197,94,0.12); }
-:root .badge-rejected { color: #991b1b; background: rgba(239,68,68,0.12); }
+.badge-pending  { color: #92400e; background: rgba(234,179,8,0.12); }
+.badge-approved { color: #166534; background: rgba(34,197,94,0.12); }
+.badge-rejected { color: #991b1b; background: rgba(239,68,68,0.12); }
 
 /* ─── Headings inherit body color (do NOT hardcode — breaks gradient cards) ──── */
 h1, h2, h3, h4, h5, h6 {
@@ -783,8 +713,6 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ═══════════════════════════════════════════════════
    .payment-method — Scoped theme-aware payment section
-   Light mode: dark text on light backgrounds
-   Dark mode : white text on dark/translucent backgrounds
    ═══════════════════════════════════════════════════ */
 
 /* ── Heading ──────────────────────────────────────── */
@@ -814,72 +742,44 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── Method card labels (over gradient bg) ────────── */
-:root .payment-method .method-card .pm-card-label {
+.payment-method .method-card .pm-card-label {
   color: #ffffff;
   text-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
-.dark .payment-method .method-card .pm-card-label {
-  color: #ffffff;
-}
 /* inactive cards in light mode have light bg → dark label */
-:root .payment-method .method-card:not(.active) .pm-card-label {
+.payment-method .method-card:not(.active) .pm-card-label {
   color: #1e1b4b;
   text-shadow: none;
 }
 
 /* ── Info box (description area) ─────────────────── */
-:root .payment-method .pm-info-box {
+.payment-method .pm-info-box {
   background: rgba(99,102,241,0.08);
   border: 1px solid rgba(99,102,241,0.2);
 }
-.dark .payment-method .pm-info-box {
-  background: rgba(59,130,246,0.08);
-  border: 1px solid rgba(59,130,246,0.15);
-}
-:root .payment-method .pm-info-text {
+.payment-method .pm-info-text {
   color: #3730a3;
 }
-:root .payment-method .pm-info-text svg {
+.payment-method .pm-info-text svg {
   color: #4f46e5;
-}
-.dark .payment-method .pm-info-text {
-  color: #93c5fd;
-}
-.dark .payment-method .pm-info-text svg {
-  color: #60a5fa;
 }
 
 /* ── Wallet/transfer number display ──────────────── */
-:root .payment-method .pm-number {
+.payment-method .pm-number {
   background: rgba(99,102,241,0.06);
   border: 1px solid rgba(99,102,241,0.2);
   color: #1e1b4b;
   font-weight: 700;
 }
-.dark .payment-method .pm-number {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-  color: #e2e8f0;
-  font-weight: 600;
-}
 
 /* ── Copy button ─────────────────────────────────── */
-:root .payment-method .pm-copy-btn {
+.payment-method .pm-copy-btn {
   background: rgba(99,102,241,0.08);
   border: 1px solid rgba(99,102,241,0.2);
   color: #4f46e5;
 }
-:root .payment-method .pm-copy-btn:hover {
+.payment-method .pm-copy-btn:hover {
   background: rgba(99,102,241,0.16);
-}
-.dark .payment-method .pm-copy-btn {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #94a3b8;
-}
-.dark .payment-method .pm-copy-btn:hover {
-  background: rgba(255,255,255,0.12);
-  color: #e2e8f0;
 }
 
 /* ─── Table cells — readable ─────────────────────────────────────────────────── */
@@ -891,9 +791,6 @@ th { color: var(--theme-text-muted); }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    .db-page — Dashboard scoped theme helpers
-   :root  = light mode  →  dark text on light surfaces
-   .dark  = dark mode   →  white text on dark surfaces
-   All selectors are scoped to .db-page to avoid breaking other pages.
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Core text helpers ───────────────────────────────────────────────────────── */
@@ -902,203 +799,122 @@ th { color: var(--theme-text-muted); }
 .db-faint         { color: var(--theme-text-faint); }
 
 /* ── Accent (prices, balances, links) ────────────────────────────────────────── */
-:root .db-accent  { color: #4f46e5; font-weight: 700; }
-.dark  .db-accent { color: #a5b4fc; font-weight: 700; }
+.db-accent  { color: #4f46e5; font-weight: 700; }
 
 /* ── Links ───────────────────────────────────────────────────────────────────── */
-:root .db-link    { color: #4f46e5; }
-:root .db-link:hover { color: #3730a3; }
-.dark  .db-link   { color: #a5b4fc; }
-.dark  .db-link:hover { color: #c7d2fe; }
-:root .db-link-bg { background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); }
-.dark  .db-link-bg { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); }
+.db-link    { color: #4f46e5; }
+.db-link:hover { color: #3730a3; }
+.db-link-bg { background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); }
 
 /* ── Platform icon colors (adapt for light mode) ─────────────────────────────── */
-:root .db-icon-tiktok { color: #1a1a1a; }
-.dark  .db-icon-tiktok { color: #e2e8f0; }
-:root .db-icon-x      { color: #1a1a1a; }
-.dark  .db-icon-x     { color: #e2e8f0; }
-:root .db-icon-muted  { color: #6b7280; }
-.dark  .db-icon-muted { color: #6b7280; }
+.db-icon-tiktok { color: #1a1a1a; }
+.db-icon-x      { color: #1a1a1a; }
+.db-icon-muted  { color: #6b7280; }
 
 /* ── Live activity banner ────────────────────────────────────────────────────── */
-:root .db-activity-banner {
+.db-activity-banner {
   background: linear-gradient(to left, rgba(249,115,22,0.08), rgba(239,68,68,0.06));
   border: 1px solid rgba(249,115,22,0.2);
 }
-.dark .db-activity-banner {
-  background: linear-gradient(to left, rgba(249,115,22,0.1), rgba(239,68,68,0.1));
-  border: 1px solid rgba(249,115,22,0.2);
-}
-:root .db-muted-orange { color: #b45309; }
-.dark  .db-muted-orange { color: rgba(251,146,60,0.75); }
+.db-muted-orange { color: #b45309; }
 
 /* Live badge */
-:root .db-live-badge { background: rgba(34,197,94,0.15); color: #15803d; border: 1px solid rgba(34,197,94,0.3); }
-.dark  .db-live-badge { background: rgba(34,197,94,0.2);  color: #4ade80;  border: 1px solid rgba(34,197,94,0.3); }
+.db-live-badge { background: rgba(34,197,94,0.15); color: #15803d; border: 1px solid rgba(34,197,94,0.3); }
 
 /* ── Hero card ───────────────────────────────────────────────────────────────── */
-:root .db-hero {
+.db-hero {
   background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(59,130,246,0.08) 50%, rgba(99,102,241,0.12) 100%);
   border: 1px solid rgba(99,102,241,0.2);
 }
-.dark .db-hero {
-  background: linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(59,130,246,0.15) 50%, rgba(99,102,241,0.25) 100%);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-:root .db-hero-title { color: #1e1b4b; }
-.dark  .db-hero-title { color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+.db-hero-title { color: #1e1b4b; }
 
 /* ── Trust badge panels ──────────────────────────────────────────────────────── */
-:root .db-badge-green  { background: rgba(34,197,94,0.07);  border: 1px solid rgba(34,197,94,0.2); }
-.dark  .db-badge-green { background: rgba(34,197,94,0.1);   border: 1px solid rgba(34,197,94,0.2); }
-:root .db-badge-blue   { background: rgba(59,130,246,0.07); border: 1px solid rgba(59,130,246,0.2); }
-.dark  .db-badge-blue  { background: rgba(59,130,246,0.1);  border: 1px solid rgba(59,130,246,0.2); }
-:root .db-badge-purple { background: rgba(168,85,247,0.07); border: 1px solid rgba(168,85,247,0.2); }
-.dark  .db-badge-purple{ background: rgba(168,85,247,0.1);  border: 1px solid rgba(168,85,247,0.2); }
-:root .db-badge-emerald{ background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2); }
-.dark  .db-badge-emerald{ background: rgba(16,185,129,0.08);border: 1px solid rgba(16,185,129,0.2); }
+.db-badge-green  { background: rgba(34,197,94,0.07);  border: 1px solid rgba(34,197,94,0.2); }
+.db-badge-blue   { background: rgba(59,130,246,0.07); border: 1px solid rgba(59,130,246,0.2); }
+.db-badge-purple { background: rgba(168,85,247,0.07); border: 1px solid rgba(168,85,247,0.2); }
+.db-badge-emerald{ background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2); }
 
-:root .db-muted-green  { color: #166534; }
-.dark  .db-muted-green { color: rgba(74,222,128,0.7); }
-:root .db-muted-blue   { color: #1e40af; }
-.dark  .db-muted-blue  { color: rgba(96,165,250,0.7); }
-:root .db-muted-purple { color: #6b21a8; }
-.dark  .db-muted-purple{ color: rgba(192,132,252,0.7); }
-:root .db-emerald-text { color: #065f46; }
-.dark  .db-emerald-text{ color: #6ee7b7; }
+.db-muted-green  { color: #166534; }
+.db-muted-blue   { color: #1e40af; }
+.db-muted-purple { color: #6b21a8; }
+.db-emerald-text { color: #065f46; }
 
 /* ── Stats cards ─────────────────────────────────────────────────────────────── */
-:root .db-stat-card {
+.db-stat-card {
   backdrop-filter: blur(12px);
   background: rgba(255,255,255,0.85);
   border: 1px solid rgba(0,0,0,0.1);
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
-.dark .db-stat-card {
-  backdrop-filter: blur(12px);
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-:root .db-stat-card-gradient {
+.db-stat-card-gradient {
   backdrop-filter: blur(12px);
   background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(59,130,246,0.08) 100%);
   border: 1px solid rgba(99,102,241,0.25);
   box-shadow: 0 2px 16px rgba(99,102,241,0.08);
 }
-.dark .db-stat-card-gradient {
-  backdrop-filter: blur(12px);
-  background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(59,130,246,0.15) 100%);
-  border: 1px solid rgba(255,255,255,0.1);
-}
-:root .db-stat-label   { color: #374151; }
-.dark  .db-stat-label  { color: #94a3b8; }
-:root .db-stat-number  { color: #111827; }
-.dark  .db-stat-number { color: #f1f5f9; }
-:root .db-stat-number-green { color: #15803d; }
-.dark  .db-stat-number-green{ color: #4ade80; }
-:root .db-balance-number { color: #1e1b4b; font-weight: 900; }
-.dark  .db-balance-number { color: #ffffff; font-weight: 900; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-:root .db-skeleton { background: rgba(0,0,0,0.06); }
-.dark  .db-skeleton { background: rgba(255,255,255,0.08); }
+.db-stat-label   { color: #374151; }
+.db-stat-number  { color: #111827; }
+.db-stat-number-green { color: #15803d; }
+.db-balance-number { color: #1e1b4b; font-weight: 900; }
+.db-skeleton { background: rgba(0,0,0,0.06); }
 
 /* ── Promo card (Instagram) ──────────────────────────────────────────────────── */
-:root .db-promo-card {
+.db-promo-card {
   border: 1px solid rgba(236,72,153,0.25);
   background: linear-gradient(to left, rgba(236,72,153,0.06), rgba(168,85,247,0.06));
 }
-:root .db-promo-card:hover {
+.db-promo-card:hover {
   background: linear-gradient(to left, rgba(236,72,153,0.1), rgba(168,85,247,0.1));
 }
-.dark .db-promo-card {
-  border: 1px solid rgba(236,72,153,0.3);
-  background: linear-gradient(to left, rgba(236,72,153,0.1), rgba(168,85,247,0.1));
-}
-.dark .db-promo-card:hover {
-  background: linear-gradient(to left, rgba(236,72,153,0.15), rgba(168,85,247,0.15));
-}
-:root .db-promo-icon-bg { background: #f8f0ff; }
-.dark  .db-promo-icon-bg { background: #0f0f1a; }
+.db-promo-icon-bg { background: #f8f0ff; }
 
 /* ── Popular services section ────────────────────────────────────────────────── */
-:root .db-hot-badge { background: rgba(239,68,68,0.1); color: #b91c1c; border: 1px solid rgba(239,68,68,0.25); }
-.dark  .db-hot-badge { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+.db-hot-badge { background: rgba(239,68,68,0.1); color: #b91c1c; border: 1px solid rgba(239,68,68,0.25); }
 
-:root .db-service-row {
+.db-service-row {
   background: rgba(255,255,255,0.75);
   border: 1px solid rgba(0,0,0,0.08);
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
-:root .db-service-row:hover {
+.db-service-row:hover {
   background: rgba(255,255,255,0.95);
   border-color: rgba(99,102,241,0.25);
   box-shadow: 0 2px 12px rgba(99,102,241,0.08);
 }
-.dark .db-service-row {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-.dark .db-service-row:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(99,102,241,0.3);
-}
 
-:root .db-rank-badge {
+.db-rank-badge {
   background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(59,130,246,0.12));
   border: 1px solid rgba(99,102,241,0.2);
   color: #4f46e5;
 }
-.dark .db-rank-badge {
-  background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(59,130,246,0.2));
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #a5b4fc;
-}
 
-:root .db-featured-badge { background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.2); }
-.dark  .db-featured-badge { background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2); }
-:root .db-featured-text   { color: #b45309; }
-.dark  .db-featured-text  { color: #fb923c; }
+.db-featured-badge { background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.2); }
+.db-featured-text   { color: #b45309; }
 
-:root .db-empty-card {
+.db-empty-card {
   background: rgba(255,255,255,0.6);
   border-color: rgba(0,0,0,0.08);
   color: var(--theme-text-muted);
 }
-.dark .db-empty-card {
-  background: rgba(255,255,255,0.03);
-  border-color: rgba(255,255,255,0.08);
-}
 
 /* ── Platform cards ──────────────────────────────────────────────────────────── */
-:root .db-platform-card {
+.db-platform-card {
   backdrop-filter: blur(8px);
   background: rgba(255,255,255,0.8);
   border: 1px solid rgba(0,0,0,0.08);
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
-:root .db-platform-card:hover {
+.db-platform-card:hover {
   background: rgba(255,255,255,0.95);
   border-color: rgba(99,102,241,0.2);
   box-shadow: 0 4px 16px rgba(99,102,241,0.1);
 }
-.dark .db-platform-card {
-  backdrop-filter: blur(12px);
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-.dark .db-platform-card:hover {
-  background: rgba(255,255,255,0.09);
-}
 
 /* ── Recent orders ───────────────────────────────────────────────────────────── */
-:root .db-order-row {
+.db-order-row {
   background: rgba(255,255,255,0.8);
   border: 1px solid rgba(0,0,0,0.08);
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.dark .db-order-row {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
 }
 
 /* ─── Mobile — ensure touch targets are big enough ──────────────────────────── */

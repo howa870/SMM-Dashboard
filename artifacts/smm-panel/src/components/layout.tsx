@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Sidebar } from "./sidebar";
 import { NotificationsBell } from "./notifications-bell";
-import { ThemeToggle } from "./theme-toggle";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { useLocation } from "wouter";
 import { Spinner } from "./ui/spinner";
@@ -86,7 +85,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Right actions */}
           <div className="flex items-center gap-2 mr-auto md:mr-0">
-            <ThemeToggle />
             <NotificationsBell />
           </div>
         </header>
