@@ -64,30 +64,27 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ═══════════════════════════════════════════════════
-   LIGHT MODE (default :root)
-   ═══════════════════════════════════════════════════ */
 :root {
-  /* Tailwind HSL design tokens — light palette */
-  --background: 210 40% 98%;
-  --foreground: 222 84% 5%;
+  /* Tailwind HSL design tokens — dark palette */
+  --background: 215 71% 11%;
+  --foreground: 210 36% 90%;
 
-  --card: 0 0% 100%;
-  --card-foreground: 222 84% 5%;
-  --card-border: 214 32% 91%;
+  --card: 217 35% 17%;
+  --card-foreground: 210 36% 90%;
+  --card-border: 217 35% 23%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 84% 5%;
-  --popover-border: 214 32% 91%;
+  --popover: 217 35% 14%;
+  --popover-foreground: 210 36% 90%;
+  --popover-border: 217 35% 22%;
 
   --primary: 239 84% 67%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 40% 96%;
-  --secondary-foreground: 222 47% 11%;
+  --secondary: 217 35% 22%;
+  --secondary-foreground: 210 36% 90%;
 
-  --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 217 35% 19%;
+  --muted-foreground: 215 20% 52%;
 
   --accent: 192 91% 43%;
   --accent-foreground: 0 0% 100%;
@@ -95,17 +92,17 @@
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
+  --border: 217 35% 23%;
+  --input: 217 35% 20%;
   --ring: 239 84% 67%;
 
-  --sidebar: 210 40% 98%;
-  --sidebar-foreground: 222 84% 5%;
-  --sidebar-border: 214 32% 91%;
+  --sidebar: 215 71% 9%;
+  --sidebar-foreground: 210 36% 90%;
+  --sidebar-border: 217 35% 19%;
   --sidebar-primary: 239 84% 67%;
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 210 40% 96%;
-  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-accent: 217 35% 17%;
+  --sidebar-accent-foreground: 210 36% 90%;
   --sidebar-ring: 239 84% 67%;
 
   --chart-1: 239 84% 67%;
@@ -119,27 +116,27 @@
   --app-font-mono: Menlo, monospace;
   --radius: 1.25rem;
 
-  /* ── Custom semantic vars for glass/neon effects (light) ── */
-  --theme-bg:          #f8fafc;
-  --theme-text:        #111827;
-  --theme-text-muted:  #4b5563;
-  --theme-text-faint:  #6b7280;
-  --theme-card:        rgba(255,255,255,0.92);
-  --theme-card-solid:  #ffffff;
-  --theme-border:      rgba(0,0,0,0.12);
-  --theme-primary:     #4f46e5;
-  --theme-glow-a:      rgba(99,102,241,0.15);
-  --theme-glow-b:      rgba(34,211,238,0.10);
-  --theme-surface:     rgba(248,250,252,0.95);
-  --theme-input-bg:    #ffffff;
-  --theme-shadow:      rgba(0,0,0,0.10);
+  /* ── Custom semantic vars — dark palette (permanent) ── */
+  --theme-bg:          #020617;
+  --theme-text:        #f1f5f9;
+  --theme-text-muted:  #94a3b8;
+  --theme-text-faint:  #64748b;
+  --theme-card:        rgba(15,23,42,0.88);
+  --theme-card-solid:  #1e293b;
+  --theme-border:      rgba(255,255,255,0.10);
+  --theme-primary:     #818cf8;
+  --theme-glow-a:      rgba(99,102,241,0.14);
+  --theme-glow-b:      rgba(6,182,212,0.09);
+  --theme-surface:     rgba(15,23,42,0.92);
+  --theme-input-bg:    rgba(15,23,42,0.75);
+  --theme-shadow:      rgba(0,0,0,0.45);
 }
 
 /* ═══════════════════════════════════════════════════
    GLOBAL BASE
    ═══════════════════════════════════════════════════ */
 html {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 @layer base {
@@ -526,18 +523,6 @@ body {
 .text-muted-theme  { color: var(--theme-text-muted) !important; }
 .text-faint-theme  { color: var(--theme-text-faint) !important; }
 
-/* Light mode: ensure Tailwind slate/gray classes are dark enough */
-.text-slate-400,
-.text-slate-500,
-.text-gray-400,
-.text-gray-500 {
-  color: var(--theme-text-muted) !important;
-}
-.text-slate-300,
-.text-gray-300 {
-  color: var(--theme-text-muted) !important;
-}
-
 /* Dark mode: keep slate/gray classes as they are — they render correctly */
 
 /* ─── Gradient cards — always white text + subtle overlay ────────────────────── */
@@ -748,38 +733,39 @@ h1, h2, h3, h4, h5, h6 {
 }
 /* inactive cards in light mode have light bg → dark label */
 .payment-method .method-card:not(.active) .pm-card-label {
-  color: #1e1b4b;
+  color: #e2e8f0;
   text-shadow: none;
 }
 
 /* ── Info box (description area) ─────────────────── */
 .payment-method .pm-info-box {
-  background: rgba(99,102,241,0.08);
-  border: 1px solid rgba(99,102,241,0.2);
+  background: rgba(59,130,246,0.08);
+  border: 1px solid rgba(59,130,246,0.15);
 }
 .payment-method .pm-info-text {
-  color: #3730a3;
+  color: #93c5fd;
 }
 .payment-method .pm-info-text svg {
-  color: #4f46e5;
+  color: #60a5fa;
 }
 
 /* ── Wallet/transfer number display ──────────────── */
 .payment-method .pm-number {
-  background: rgba(99,102,241,0.06);
-  border: 1px solid rgba(99,102,241,0.2);
-  color: #1e1b4b;
-  font-weight: 700;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #e2e8f0;
+  font-weight: 600;
 }
 
 /* ── Copy button ─────────────────────────────────── */
 .payment-method .pm-copy-btn {
-  background: rgba(99,102,241,0.08);
-  border: 1px solid rgba(99,102,241,0.2);
-  color: #4f46e5;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #94a3b8;
 }
 .payment-method .pm-copy-btn:hover {
-  background: rgba(99,102,241,0.16);
+  background: rgba(255,255,255,0.12);
+  color: #e2e8f0;
 }
 
 /* ─── Table cells — readable ─────────────────────────────────────────────────── */
@@ -794,127 +780,118 @@ th { color: var(--theme-text-muted); }
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Core text helpers ───────────────────────────────────────────────────────── */
-.db-text          { color: var(--theme-text); }
-.db-muted         { color: var(--theme-text-muted); }
-.db-faint         { color: var(--theme-text-faint); }
+.db-text          { color: #f1f5f9; }
+.db-muted         { color: #94a3b8; }
+.db-faint         { color: #64748b; }
 
 /* ── Accent (prices, balances, links) ────────────────────────────────────────── */
-.db-accent  { color: #4f46e5; font-weight: 700; }
+.db-accent  { color: #a5b4fc; font-weight: 700; }
 
 /* ── Links ───────────────────────────────────────────────────────────────────── */
-.db-link    { color: #4f46e5; }
-.db-link:hover { color: #3730a3; }
-.db-link-bg { background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); }
+.db-link    { color: #a5b4fc; }
+.db-link:hover { color: #c7d2fe; }
+.db-link-bg { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); }
 
 /* ── Platform icon colors (adapt for light mode) ─────────────────────────────── */
-.db-icon-tiktok { color: #1a1a1a; }
-.db-icon-x      { color: #1a1a1a; }
+.db-icon-tiktok { color: #e2e8f0; }
+.db-icon-x     { color: #e2e8f0; }
 .db-icon-muted  { color: #6b7280; }
 
 /* ── Live activity banner ────────────────────────────────────────────────────── */
 .db-activity-banner {
-  background: linear-gradient(to left, rgba(249,115,22,0.08), rgba(239,68,68,0.06));
+  background: linear-gradient(to left, rgba(249,115,22,0.1), rgba(239,68,68,0.1));
   border: 1px solid rgba(249,115,22,0.2);
 }
-.db-muted-orange { color: #b45309; }
+.db-muted-orange { color: rgba(251,146,60,0.75); }
 
 /* Live badge */
-.db-live-badge { background: rgba(34,197,94,0.15); color: #15803d; border: 1px solid rgba(34,197,94,0.3); }
+.db-live-badge { background: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
 
 /* ── Hero card ───────────────────────────────────────────────────────────────── */
 .db-hero {
-  background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(59,130,246,0.08) 50%, rgba(99,102,241,0.12) 100%);
-  border: 1px solid rgba(99,102,241,0.2);
+  background: linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(59,130,246,0.15) 50%, rgba(99,102,241,0.25) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
 }
-.db-hero-title { color: #1e1b4b; }
+.db-hero-title { color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
 
 /* ── Trust badge panels ──────────────────────────────────────────────────────── */
-.db-badge-green  { background: rgba(34,197,94,0.07);  border: 1px solid rgba(34,197,94,0.2); }
-.db-badge-blue   { background: rgba(59,130,246,0.07); border: 1px solid rgba(59,130,246,0.2); }
-.db-badge-purple { background: rgba(168,85,247,0.07); border: 1px solid rgba(168,85,247,0.2); }
-.db-badge-emerald{ background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2); }
+.db-badge-green  { background: rgba(34,197,94,0.1);  border: 1px solid rgba(34,197,94,0.2); }
+.db-badge-blue   { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); }
+.db-badge-purple { background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.2); }
+.db-badge-emerald{ background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
 
-.db-muted-green  { color: #166534; }
-.db-muted-blue   { color: #1e40af; }
-.db-muted-purple { color: #6b21a8; }
-.db-emerald-text { color: #065f46; }
+.db-muted-green  { color: rgba(74,222,128,0.7); }
+.db-muted-blue   { color: rgba(96,165,250,0.7); }
+.db-muted-purple { color: rgba(192,132,252,0.7); }
+.db-emerald-text { color: #6ee7b7; }
 
 /* ── Stats cards ─────────────────────────────────────────────────────────────── */
 .db-stat-card {
   backdrop-filter: blur(12px);
-  background: rgba(255,255,255,0.85);
-  border: 1px solid rgba(0,0,0,0.1);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 .db-stat-card-gradient {
   backdrop-filter: blur(12px);
-  background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(59,130,246,0.08) 100%);
-  border: 1px solid rgba(99,102,241,0.25);
-  box-shadow: 0 2px 16px rgba(99,102,241,0.08);
+  background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(59,130,246,0.15) 100%);
+  border: 1px solid rgba(255,255,255,0.1);
 }
-.db-stat-label   { color: #374151; }
-.db-stat-number  { color: #111827; }
-.db-stat-number-green { color: #15803d; }
-.db-balance-number { color: #1e1b4b; font-weight: 900; }
-.db-skeleton { background: rgba(0,0,0,0.06); }
+.db-stat-label   { color: #94a3b8; }
+.db-stat-number  { color: #f1f5f9; }
+.db-stat-number-green { color: #4ade80; }
+.db-balance-number { color: #ffffff; font-weight: 900; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+.db-skeleton { background: rgba(255,255,255,0.08); }
 
 /* ── Promo card (Instagram) ──────────────────────────────────────────────────── */
 .db-promo-card {
-  border: 1px solid rgba(236,72,153,0.25);
-  background: linear-gradient(to left, rgba(236,72,153,0.06), rgba(168,85,247,0.06));
-}
-.db-promo-card:hover {
+  border: 1px solid rgba(236,72,153,0.3);
   background: linear-gradient(to left, rgba(236,72,153,0.1), rgba(168,85,247,0.1));
 }
-.db-promo-icon-bg { background: #f8f0ff; }
+.db-promo-card:hover {
+  background: linear-gradient(to left, rgba(236,72,153,0.15), rgba(168,85,247,0.15));
+}
+.db-promo-icon-bg { background: #0f0f1a; }
 
 /* ── Popular services section ────────────────────────────────────────────────── */
-.db-hot-badge { background: rgba(239,68,68,0.1); color: #b91c1c; border: 1px solid rgba(239,68,68,0.25); }
+.db-hot-badge { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
 
 .db-service-row {
-  background: rgba(255,255,255,0.75);
-  border: 1px solid rgba(0,0,0,0.08);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 .db-service-row:hover {
-  background: rgba(255,255,255,0.95);
-  border-color: rgba(99,102,241,0.25);
-  box-shadow: 0 2px 12px rgba(99,102,241,0.08);
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(99,102,241,0.3);
 }
 
 .db-rank-badge {
-  background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(59,130,246,0.12));
-  border: 1px solid rgba(99,102,241,0.2);
-  color: #4f46e5;
+  background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(59,130,246,0.2));
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #a5b4fc;
 }
 
-.db-featured-badge { background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.2); }
-.db-featured-text   { color: #b45309; }
+.db-featured-badge { background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2); }
+.db-featured-text   { color: #fb923c; }
 
 .db-empty-card {
-  background: rgba(255,255,255,0.6);
-  border-color: rgba(0,0,0,0.08);
-  color: var(--theme-text-muted);
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.08);
 }
 
 /* ── Platform cards ──────────────────────────────────────────────────────────── */
 .db-platform-card {
-  backdrop-filter: blur(8px);
-  background: rgba(255,255,255,0.8);
-  border: 1px solid rgba(0,0,0,0.08);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 .db-platform-card:hover {
-  background: rgba(255,255,255,0.95);
-  border-color: rgba(99,102,241,0.2);
-  box-shadow: 0 4px 16px rgba(99,102,241,0.1);
+  background: rgba(255,255,255,0.09);
 }
 
 /* ── Recent orders ───────────────────────────────────────────────────────────── */
 .db-order-row {
-  background: rgba(255,255,255,0.8);
-  border: 1px solid rgba(0,0,0,0.08);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 
 /* ─── Mobile — ensure touch targets are big enough ──────────────────────────── */
