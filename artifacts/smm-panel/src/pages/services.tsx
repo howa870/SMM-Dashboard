@@ -60,18 +60,35 @@ function qualityBadge(name: string): string | null {
 
 // ─── Backend fetch ──────────────────────────────────────────────────────────────
 async function fetchServices(): Promise<Service[]> {
-  const res = await fetch("/api/services");
+  const res = await fetch("/api/smm/services");
   if (!res.ok) throw new Error("تعذر تحميل الخدمات");
   const json = await res.json();
-  const list = json.services ?? json.data ?? (Array.isArray(json) ? json : []);
+  // Unwrap envelope: { ok, data:[...] } or { services:[...] } or plain array
+  const list = json.data ?? json.services ?? (Array.isArray(json) ? json : []);
   if (!Array.isArray(list)) throw new Error("تنسيق بيانات غير صحيح");
-  return list as Service[];
+  // Map Supabase format → Service type
+  return (list as Array<Record<string, unknown>>).map(s => ({
+    id:                  s["id"] as string | number,
+    platform_id:         (s["platform_id"] ?? s["platformId"] ?? null) as number | null,
+    name:                s["name"] as string,
+    description:         (s["description"] ?? null) as string | null,
+    category:            (s["category"] ?? null) as string | null,
+    platform:            (s["platform"] ?? s["platformName"] ?? "Other") as string,
+    service_type:        (s["service_type"] ?? null) as Service["service_type"],
+    price:               typeof s["price"] === "number" ? s["price"] : parseFloat(String(s["price"])) || 0,
+    min_order:           Number(s["min_order"] ?? s["minOrder"] ?? 100),
+    max_order:           Number(s["max_order"] ?? s["maxOrder"] ?? 100000),
+    status:              (s["status"] ?? "active") as string,
+    provider:            (s["provider"] ?? null) as string | null,
+    provider_service_id: (s["provider_service_id"] ?? null) as string | null,
+  }));
 }
 
 // ─── Single service row ─────────────────────────────────────────────────────────
 function ServiceRow({ svc, platformMeta }: { svc: Service; platformMeta: ReturnType<typeof getMeta> }) {
   const badge = qualityBadge(svc.name);
-  const orderUrl = `/order?sid=${svc.id}&sname=${encodeURIComponent(svc.name)}&sprice=${svc.price}&smin=${svc.min_order}&smax=${svc.max_order}&sprovider=${encodeURIComponent(svc.provider || "local")}`;
+  const psid = svc.provider_service_id ?? "";
+  const orderUrl = `/order?sid=${svc.id}&sname=${encodeURIComponent(svc.name)}&sprice=${svc.price}&smin=${svc.min_order}&smax=${svc.max_order}&sprovider=${encodeURIComponent(svc.provider || "local")}&psid=${encodeURIComponent(psid)}`;
 
   return (
     <Link href={orderUrl} className="block">

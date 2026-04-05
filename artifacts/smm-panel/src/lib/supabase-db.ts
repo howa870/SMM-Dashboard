@@ -128,29 +128,52 @@ export async function getPlatforms(): Promise<Platform[]> {
 
 export async function getServices(platformId?: number): Promise<Service[]> {
   try {
-    type ApiService = { id: number; platformId: number; platformName: string; name: string; description: string | null; price: number; minOrder: number; maxOrder: number; status: string };
-    const path = platformId ? `/api/services?platformId=${platformId}` : "/api/services";
-    const raw = await apiFetch<ApiService[] | { services?: ApiService[]; data?: ApiService[] }>(path);
-    // Unwrap envelope formats ({ services: [...] } or { data: [...] }) or plain arrays
-    const data: ApiService[] = Array.isArray(raw)
+    // Use the SMM services endpoint which has all Followiz data
+    const path = platformId ? `/api/smm/services?platformId=${platformId}` : "/api/smm/services";
+    type SupabaseService = {
+      id: string | number;
+      name: string;
+      description?: string | null;
+      category?: string | null;
+      platform?: string | null;
+      service_type?: string | null;
+      price: number | string;
+      min_order?: number;
+      max_order?: number;
+      // legacy Drizzle format fields (fallback support)
+      platformId?: number;
+      platformName?: string | null;
+      minOrder?: number;
+      maxOrder?: number;
+      status: string;
+      provider?: string | null;
+      provider_service_id?: string | null;
+      platform_id?: string | null;
+    };
+    const raw = await apiFetch<SupabaseService[] | { data?: SupabaseService[]; services?: SupabaseService[] }>(path);
+    // Unwrap envelope formats: { ok, data:[...] } or { services:[...] } or plain array
+    const data: SupabaseService[] = Array.isArray(raw)
       ? raw
-      : (Array.isArray((raw as { services?: ApiService[] }).services) ? (raw as { services: ApiService[] }).services
-        : Array.isArray((raw as { data?: ApiService[] }).data) ? (raw as { data: ApiService[] }).data
-        : []);
+      : (Array.isArray((raw as { data?: SupabaseService[] }).data)
+          ? (raw as { data: SupabaseService[] }).data
+          : Array.isArray((raw as { services?: SupabaseService[] }).services)
+            ? (raw as { services: SupabaseService[] }).services
+            : []);
     return data.map(s => ({
       id: s.id,
-      platform_id: s.platformId,
+      platform_id: s.platformId ?? null,
       name: s.name,
-      description: s.description,
-      category: null,
-      platform: s.platformName,
-      service_type: null,
-      price: s.price,
-      min_order: s.minOrder,
-      max_order: s.maxOrder,
+      description: s.description ?? null,
+      category: s.category ?? null,
+      // Supabase format uses "platform" directly; Drizzle format uses "platformName"
+      platform: s.platform ?? s.platformName ?? "Other",
+      service_type: (s.service_type as Service["service_type"]) ?? null,
+      price: typeof s.price === "number" ? s.price : parseFloat(String(s.price)) || 0,
+      min_order: s.min_order ?? s.minOrder ?? 100,
+      max_order: s.max_order ?? s.maxOrder ?? 100000,
       status: s.status,
-      provider: null,
-      provider_service_id: null,
+      provider: s.provider ?? null,
+      provider_service_id: s.provider_service_id ?? null,
     }));
   } catch (err) {
     console.error("[DB] getServices:", (err as Error).message);

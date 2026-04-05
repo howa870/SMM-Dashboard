@@ -85,33 +85,28 @@ function detectPlatform(name: string, category: string): string {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SERVICE QUALITY FILTER
-// Keeps only high-quality services, removes spam/bots, max 20 per platform
+// SERVICE PROCESSING — ALL services, ranked by quality, no artificial caps
 // ══════════════════════════════════════════════════════════════════════════════
 
 // ─── QUALITY KEYWORDS ─────────────────────────────────────────────────────────
-// Any of these in the name = quality tier (preferred)
 const QUALITY_KEYWORDS = [
   "high quality", "no drop", "real", "refill", "fast",
-  "[r7]", "[r30]", "[r60]", "[r90]", "[r365]",   // Followiz refill shorthands
+  "[r7]", "[r30]", "[r60]", "[r90]", "[r365]",
   "guaranteed", "hq",
 ];
 
-// Any of these = blacklisted (always removed)
-const BLACKLIST_KEYWORDS = ["cheap", "low quality", "bot", "test", "trial"];
+// Truly bad services — always remove
+const BLACKLIST_KEYWORDS = ["test service", "trial only"];
+
+// Separator/divider lines used by Followiz as section headers — not real services
+function isSeparatorService(name: string): boolean {
+  const trimmed = name.trim();
+  // Pure dash lines, empty strings, or names with no alphanumeric chars
+  return trimmed.length === 0 || /^[-─═━\s]+$/.test(trimmed) || !/[a-zA-Z0-9\u0600-\u06FF]/.test(trimmed);
+}
 
 // ─── SERVICE TYPE DETECTION ────────────────────────────────────────────────────
 type ServiceType = "Followers" | "Likes" | "Views" | "Comments" | "Other";
-
-const TYPE_LIMITS: Record<ServiceType, number> = {
-  Followers: 10,
-  Likes:      5,
-  Views:      5,
-  Comments:   5,
-  Other:      5,
-};
-
-const MAX_PER_PLATFORM = 30;
 
 function detectServiceType(name: string): ServiceType {
   const n = name.toLowerCase();
@@ -137,88 +132,69 @@ function qualityScore(name: string): number {
   return 0;
 }
 
-// ─── MAIN FILTER FUNCTION ─────────────────────────────────────────────────────
+// Detect if a service is free (rate == 0 or name contains "free")
+function isFreeService(s: FollowizService): boolean {
+  return Number(s.rate) === 0 || s.name.toLowerCase().includes("free");
+}
+
+// ─── NORMALIZE: support all API response formats ───────────────────────────────
+function normalizeFollowizServices(raw: unknown): FollowizService[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as FollowizService[];
+  const r = raw as Record<string, unknown>;
+  if (Array.isArray(r["data"])) return r["data"] as FollowizService[];
+  if (Array.isArray(r["services"])) return r["services"] as FollowizService[];
+  if (r["data"] && typeof r["data"] === "object" && Array.isArray((r["data"] as Record<string, unknown>)["services"]))
+    return (r["data"] as Record<string, unknown>)["services"] as FollowizService[];
+  return [];
+}
+
+// ─── MAIN FILTER FUNCTION — keeps ALL non-blacklisted services ─────────────────
 function filterAndRankServices(raw: FollowizService[]): FollowizService[] {
-  // 1. Deduplicate
+  // 1. Normalize response format
+  const normalized = Array.isArray(raw) ? raw : normalizeFollowizServices(raw);
+  console.log(`[SMM] TOTAL services from provider: ${normalized.length}`);
+
+  // 2. Deduplicate by provider service ID
   const seen = new Set<string>();
-  const deduped = raw.filter(s => {
+  const deduped = normalized.filter(s => {
     const k = String(s.service);
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
   });
 
-  // 2. Remove blacklisted
-  const cleaned = deduped.filter(s => !BLACKLIST_KEYWORDS.some(kw => s.name.toLowerCase().includes(kw)));
+  // 3. Remove separator/divider lines and blacklisted services
+  const cleaned = deduped.filter(s =>
+    !isSeparatorService(s.name) &&
+    !BLACKLIST_KEYWORDS.some(kw => s.name.toLowerCase().includes(kw))
+  );
 
-  // 3. Split quality tier vs standard tier
-  const isQuality = (s: FollowizService) => QUALITY_KEYWORDS.some(kw => s.name.toLowerCase().includes(kw));
-  const qualityTier  = cleaned.filter(isQuality);
-  const standardTier = cleaned.filter(s => !isQuality(s));
+  // 4. Free services always kept — put them first
+  const freeServices   = cleaned.filter(isFreeService);
+  const paidServices   = cleaned.filter(s => !isFreeService(s));
 
-  // 4. Sort each tier: quality score desc, then rate asc (best value first)
+  // 5. Sort paid services: quality score desc, then rate asc
   const sortFn = (a: FollowizService, b: FollowizService) => {
     const d = qualityScore(b.name) - qualityScore(a.name);
     return d !== 0 ? d : Number(a.rate) - Number(b.rate);
   };
-  qualityTier.sort(sortFn);
-  standardTier.sort(sortFn);
+  paidServices.sort(sortFn);
 
-  // 5. Group each tier by (platform, serviceType)
-  type Bucket = FollowizService[];
-  const makeKey = (s: FollowizService) =>
-    `${detectPlatform(s.name, s.category)}|${detectServiceType(s.name)}`;
+  // 6. Combine: free first, then all paid (NO per-platform caps)
+  const result = [...freeServices, ...paidServices];
 
-  const qualityBuckets: Record<string, Bucket> = {};
-  const standardBuckets: Record<string, Bucket> = {};
-
-  for (const s of qualityTier) {
-    const k = makeKey(s);
-    (qualityBuckets[k] ||= []).push(s);
-  }
-  for (const s of standardTier) {
-    const k = makeKey(s);
-    (standardBuckets[k] ||= []).push(s);
-  }
-
-  // 6. For each platform, build the result respecting per-type & total limits
-  const result: FollowizService[] = [];
+  // Log per-platform breakdown
   const platformTotals: Record<string, number> = {};
-  const typeCounts: Record<string, Record<ServiceType, number>> = {};
-
-  const addService = (s: FollowizService) => {
-    const p    = detectPlatform(s.name, s.category);
-    const type = detectServiceType(s.name);
+  for (const s of result) {
+    const p = detectPlatform(s.name, s.category);
     platformTotals[p] = (platformTotals[p] || 0) + 1;
-    if (!typeCounts[p]) typeCounts[p] = { Followers: 0, Likes: 0, Views: 0, Comments: 0, Other: 0 };
-    typeCounts[p][type] = (typeCounts[p][type] || 0) + 1;
-    result.push(s);
-  };
-
-  const canAdd = (s: FollowizService): boolean => {
-    const p    = detectPlatform(s.name, s.category);
-    const type = detectServiceType(s.name);
-    const tc   = typeCounts[p]?.[type] || 0;
-    const tot  = platformTotals[p] || 0;
-    return tc < TYPE_LIMITS[type] && tot < MAX_PER_PLATFORM;
-  };
-
-  // Pass 1: quality tier
-  for (const s of qualityTier) {
-    if (canAdd(s)) addService(s);
   }
-
-  // Pass 2: backfill with standard tier where type slots still open
-  for (const s of standardTier) {
-    if (canAdd(s)) addService(s);
-  }
-
-  // Log summary
   const summary = Object.entries(platformTotals)
     .sort((a, b) => b[1] - a[1])
     .map(([p, c]) => `${p}:${c}`)
     .join(", ");
-  console.log(`[SMM] ✅ Filter: ${result.length}/${raw.length} services kept | ${summary}`);
+  console.log(`[SMM] ✅ Filter: ${result.length}/${normalized.length} services kept | Free:${freeServices.length} | ${summary}`);
   return result;
 }
 
@@ -261,21 +237,20 @@ async function autoSyncServicesToDb(): Promise<number> {
   console.log("[SMM] 🔄 Auto-syncing services to Supabase...");
 
   try {
-    // 1. Fetch from Followiz API
+    // 1. Fetch from Followiz API (handle any response format)
     let followizServices: FollowizService[];
     try {
       const raw = await followizRequest({ action: "services" });
-      if (!Array.isArray(raw)) throw new Error("Unexpected response format");
-      followizServices = raw as FollowizService[];
+      followizServices = normalizeFollowizServices(raw);
       console.log(`[SMM] Fetched ${followizServices.length} services from Followiz`);
     } catch (err) {
       console.error("[SMM] Failed to fetch from Followiz:", err);
       return 0;
     }
 
-    // 2. Filter & rank — keep only high-quality services, max 20 per platform
+    // 2. Process all services — deduplicate + rank, NO per-platform caps
     const filtered = filterAndRankServices(followizServices);
-    console.log(`[SMM] Filtered: ${filtered.length}/${followizServices.length} services kept`);
+    console.log(`[SMM] Processed: ${filtered.length}/${followizServices.length} services`);
 
     // 3. Build upsert rows — type-based smart pricing
     const rows = filtered.map(svc => {
@@ -391,18 +366,39 @@ async function isDbEmpty(): Promise<boolean> {
   }
 }
 
+// Minimum expected service count — if DB has fewer, force a fresh sync
+const MIN_EXPECTED_SERVICES = 500;
+
+async function getDbServiceCount(): Promise<number> {
+  try {
+    const { count, error } = await adminDb
+      .from("services")
+      .select("id", { count: "exact", head: true })
+      .eq("provider", "followiz");
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 // Ensure DB is fresh — call on every /services request
 async function ensureServicesFresh() {
   const stale = !lastDbSyncTime || (Date.now() - lastDbSyncTime > DB_SYNC_INTERVAL_MS);
-  if (!stale) return;
 
-  const empty = await isDbEmpty();
-  if (empty) {
+  const currentCount = await getDbServiceCount();
+  const underpopulated = currentCount < MIN_EXPECTED_SERVICES;
+
+  if (currentCount === 0) {
     // DB is empty → must sync and await (user is waiting)
     console.log("[SMM] DB empty — awaiting initial sync...");
     await autoSyncServicesToDb();
+  } else if (underpopulated) {
+    // Has some data but far fewer than expected — re-sync (limits were removed)
+    console.log(`[SMM] DB underpopulated (${currentCount} < ${MIN_EXPECTED_SERVICES}) — awaiting re-sync...`);
+    await autoSyncServicesToDb();
   } else if (stale) {
-    // Stale but has data → sync in background (return current data fast)
+    // Stale but has enough data → sync in background (return current data fast)
     console.log("[SMM] DB stale — triggering background sync");
     autoSyncServicesToDb(); // intentionally NOT awaited
   }
@@ -458,7 +454,7 @@ router.get("/services", async (_req, res) => {
 
     const { data, error } = await adminDb
       .from("services")
-      .select("id, name, category, platform, price, min_order, max_order, status, provider, provider_service_id, platform_id")
+      .select("id, name, category, platform, service_type, price, min_order, max_order, status, provider, provider_service_id, platform_id")
       .eq("status", "active")
       .order("platform")
       .order("id");
@@ -507,8 +503,10 @@ router.get("/services", async (_req, res) => {
       return;
     }
 
-    console.log(`[SMM] /services → ${data.length} services from DB`);
-    res.json({ ok: true, data, total: data.length, synced_at: lastDbSyncTime });
+    // Filter out any separator/divider entries that may have been stored before the filter was added
+    const filtered = data.filter(s => !isSeparatorService(s.name));
+    console.log(`[SMM] /services → ${filtered.length} services from DB (${data.length - filtered.length} separators removed)`);
+    res.json({ ok: true, data: filtered, total: filtered.length, synced_at: lastDbSyncTime });
   } catch (err) {
     console.error("[SMM] /services error:", err);
     res.status(500).json({ ok: false, error: "خطأ داخلي" });
@@ -826,13 +824,16 @@ export function startSmmPoller() {
 
   // ── Initial sync on startup (after 3s to let DB connections warm up) ────
   setTimeout(async () => {
-    console.log("[SMM] 🚀 Server startup — checking if services DB is empty...");
-    const empty = await isDbEmpty();
-    if (empty) {
+    console.log("[SMM] 🚀 Server startup — checking services DB health...");
+    const count = await getDbServiceCount();
+    if (count === 0) {
       console.log("[SMM] 🚀 DB is empty — syncing services now...");
       await autoSyncServicesToDb();
+    } else if (count < MIN_EXPECTED_SERVICES) {
+      console.log(`[SMM] 🚀 DB underpopulated (${count} services, expected ≥${MIN_EXPECTED_SERVICES}) — re-syncing all services...`);
+      await autoSyncServicesToDb();
     } else {
-      console.log("[SMM] 🚀 DB already has services — skipping initial sync");
+      console.log(`[SMM] 🚀 DB has ${count} services — marking as fresh`);
       lastDbSyncTime = Date.now(); // assume recent enough
     }
   }, 3_000);
