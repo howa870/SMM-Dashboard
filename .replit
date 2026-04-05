@@ -53,7 +53,7 @@ channel = "stable-25_05"
 
 [userenv.shared]
 VITE_SUPABASE_URL = "https://srauxtrdjoleaarqrave.supabase.co"
-VITE_SUPABASE_ANON_KEY = "sb_publishable_HI8r0QGrDHarMXYdUMjelA_UdDmsEky"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9ycWZ0eGdjcG9pb2xpbmVzZ2RlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTA1ODUwMSwiZXhwIjoyMDkwNjM0NTAxfQ.xSK0qzitYazCVkear675A1-KwDwKiENnr3yX01sbtMs"
 TELEGRAM_CHAT_ID = "6460074022"
 TELEGRAM_ADMIN_ID = "6460074022"
 FOLLOWIZ_KEY = "7df9c35df34ad299ded4d7e2177cc6cc"
