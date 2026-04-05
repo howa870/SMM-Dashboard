@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { Globe, Database, ExternalLink, RefreshCw } from "lucide-react";
 import { useUserOrders } from "@/hooks/useOrdersData";
+import { translateServiceName } from "@/lib/translate-service";
 import { useQueryClient } from "@tanstack/react-query";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -83,7 +84,7 @@ export function Orders() {
                       </div>
 
                       <h3 className="font-bold text-white">
-                        {order.services?.name || (isProviderOrder ? "خدمة مزود خارجي" : `خدمة #${order.service_id}`)}
+                        {order.services?.name ? translateServiceName(order.services.name) : (isProviderOrder ? "خدمة مزود خارجي" : `خدمة #${order.service_id}`)}
                       </h3>
 
                       <p className="text-sm text-gray-400 font-mono truncate max-w-xs md:max-w-md" dir="ltr">

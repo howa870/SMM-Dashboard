@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout";
+import { translateServiceName } from "@/lib/translate-service";
 import { useSupabaseAuth } from "@/context/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserOrders } from "@/hooks/useOrdersData";
@@ -239,7 +240,7 @@ export function Dashboard() {
                         {idx + 1}
                       </div>
                       <div className="min-w-0">
-                        <p className="db-text font-medium text-sm truncate">{service.name}</p>
+                        <p className="db-text font-medium text-sm truncate">{translateServiceName(service.name)}</p>
                         <p className="db-muted text-xs">
                           {service.service_type === "Followers" ? "متابعين" :
                            service.service_type === "Likes" ? "لايكات" :
@@ -315,7 +316,7 @@ export function Dashboard() {
               {orders.slice(0, 3).map(order => (
                 <div key={order.id} className="db-order-row rounded-xl p-4 flex items-center justify-between gap-4">
                   <div>
-                    <p className="db-text font-medium">{order.services?.name || `طلب #${order.id}`}</p>
+                    <p className="db-text font-medium">{order.services?.name ? translateServiceName(order.services.name) : `طلب #${order.id}`}</p>
                     <p className="text-xs db-muted font-mono truncate max-w-[180px]" dir="ltr">{order.link}</p>
                   </div>
                   <div className="text-right shrink-0">

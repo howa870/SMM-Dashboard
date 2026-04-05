@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout";
+import { translateServiceName } from "@/lib/translate-service";
 import { useSearch, useLocation } from "wouter";
 import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -222,7 +223,7 @@ export function NewOrder() {
             <Globe className="w-4 h-4" />
             <span>{isProvider ? "خدمة مزود Followiz" : "خدمة محلية"}</span>
           </div>
-          <p className="text-white font-semibold leading-snug">{serviceName}</p>
+          <p className="text-white font-semibold leading-snug">{translateServiceName(serviceName)}</p>
           <div className="flex flex-wrap gap-3">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-xs">
               <TrendingDown className="w-3.5 h-3.5 text-green-400" />
