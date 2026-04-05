@@ -88,59 +88,92 @@ function toError(err: unknown): Error {
   return new Error(String(err));
 }
 
-// ─── PLATFORMS ────────────────────────────────────────────────
+// ─── BACKEND API HELPER (bypasses Supabase RLS entirely) ──────
+const API_BASE = (typeof import.meta !== "undefined" ? (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ?? "" : "").replace(/\/$/, "");
+
+async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem("pf_session_token");
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers,
+    },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error || `API ${path} returned ${res.status}`);
+  }
+  return res.json();
+}
+
+// ─── PLATFORMS ─────────────────────────────────────────────────
+// Routes through backend API to avoid Supabase RLS issues
 
 export async function getPlatforms(): Promise<Platform[]> {
-  const { data, error } = await supabase
-    .from("platforms")
-    .select("id, name, icon, color")
-    .order("id");
-  if (error) {
-    console.error("[DB] getPlatforms:", error.message, error.code);
-    throw toError(error);
+  try {
+    type ApiPlatform = { id: number; name: string; icon: string | null; color: string | null };
+    const data = await apiFetch<ApiPlatform[]>("/api/platforms");
+    return data.map(p => ({ id: p.id, name: p.name, icon: p.icon, color: p.color }));
+  } catch (err) {
+    console.error("[DB] getPlatforms:", (err as Error).message);
+    return [];
   }
-  return data as Platform[];
 }
 
 // ─── SERVICES ─────────────────────────────────────────────────
+// Routes through backend API to avoid Supabase RLS issues
 
 export async function getServices(platformId?: number): Promise<Service[]> {
-  let query = supabase
-    .from("services")
-    .select("*, platforms(name)")
-    .eq("status", "active");
-  if (platformId) query = query.eq("platform_id", platformId);
-  const { data, error } = await query.order("id");
-  if (error) {
-    console.error("[DB] getServices:", error.message, error.code);
-    throw toError(error);
+  try {
+    type ApiService = { id: number; platformId: number; platformName: string; name: string; description: string | null; price: number; minOrder: number; maxOrder: number; status: string };
+    const path = platformId ? `/api/services?platformId=${platformId}` : "/api/services";
+    const raw = await apiFetch<ApiService[] | { services?: ApiService[]; data?: ApiService[] }>(path);
+    // Unwrap envelope formats ({ services: [...] } or { data: [...] }) or plain arrays
+    const data: ApiService[] = Array.isArray(raw)
+      ? raw
+      : (Array.isArray((raw as { services?: ApiService[] }).services) ? (raw as { services: ApiService[] }).services
+        : Array.isArray((raw as { data?: ApiService[] }).data) ? (raw as { data: ApiService[] }).data
+        : []);
+    return data.map(s => ({
+      id: s.id,
+      platform_id: s.platformId,
+      name: s.name,
+      description: s.description,
+      category: null,
+      platform: s.platformName,
+      service_type: null,
+      price: s.price,
+      min_order: s.minOrder,
+      max_order: s.maxOrder,
+      status: s.status,
+      provider: null,
+      provider_service_id: null,
+    }));
+  } catch (err) {
+    console.error("[DB] getServices:", (err as Error).message);
+    return [];
   }
-  return data as Service[];
 }
 
 // ─── PROFILES ─────────────────────────────────────────────────
+// Routes through backend API to avoid Supabase RLS infinite recursion
 
-export async function getProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) {
-    console.error("[DB] getProfile:", error.message, error.code);
-    throw toError(error);
+export async function getProfile(_userId: string): Promise<Profile | null> {
+  try {
+    type ApiUser = { id: number; name: string | null; email: string | null; balance: number; role: string };
+    const data = await apiFetch<ApiUser>("/api/auth/me");
+    return { id: String(data.id), name: data.name, email: data.email, balance: data.balance, role: data.role };
+  } catch (err) {
+    console.error("[DB] getProfile:", (err as Error).message);
+    return null;
   }
-  return data as Profile | null;
 }
 
-export async function upsertProfile(profile: Partial<Profile> & { id: string }): Promise<void> {
-  const { error } = await supabase
-    .from("profiles")
-    .upsert(profile, { onConflict: "id" });
-  if (error) {
-    console.error("[DB] upsertProfile:", error.message, error.code);
-    throw toError(error);
-  }
+export async function upsertProfile(_profile: Partial<Profile> & { id: string }): Promise<void> {
+  // User is created/synced in Drizzle via backend login — no-op here
 }
 
 export async function getAdminStats(): Promise<{
@@ -192,17 +225,25 @@ export async function getDailyPaymentStats(): Promise<{ date: string; amount: nu
 
 // ─── ORDERS ───────────────────────────────────────────────────
 
-export async function getUserOrders(userId: string): Promise<SupabaseOrder[]> {
-  const { data, error } = await supabase
-    .from("orders")
-    .select("*, services(name)")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) {
-    console.error("[DB] getUserOrders:", error.message, error.code);
-    throw toError(error);
+export async function getUserOrders(_userId: string): Promise<SupabaseOrder[]> {
+  try {
+    type ApiOrder = { id: number; userId: number; serviceId: number; serviceName: string; link: string; quantity: number; totalPrice: number; status: string; createdAt: string };
+    const data = await apiFetch<ApiOrder[]>("/api/orders");
+    return data.map(o => ({
+      id: o.id,
+      user_id: String(o.userId),
+      service_id: o.serviceId,
+      link: o.link,
+      quantity: o.quantity,
+      total_price: o.totalPrice,
+      status: o.status,
+      created_at: o.createdAt,
+      services: { name: o.serviceName },
+    }));
+  } catch (err) {
+    console.error("[DB] getUserOrders:", (err as Error).message);
+    return [];
   }
-  return data as SupabaseOrder[];
 }
 
 export async function submitOrder(params: {
@@ -358,18 +399,9 @@ export async function createNotification(params: {
   if (error) console.warn("[DB] createNotification failed:", error.message);
 }
 
-export async function getUserNotifications(userId: string): Promise<Notification[]> {
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(20);
-  if (error) {
-    console.error("[DB] getUserNotifications:", error.message, error.code);
-    throw toError(error);
-  }
-  return data as Notification[];
+export async function getUserNotifications(_userId: string): Promise<Notification[]> {
+  // Notifications are in Supabase which has broken RLS — return empty until migrated
+  return [];
 }
 
 export async function markNotificationsRead(userId: string): Promise<void> {

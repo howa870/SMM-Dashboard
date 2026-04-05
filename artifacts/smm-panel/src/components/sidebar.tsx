@@ -177,6 +177,22 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             <p className="text-[11px] text-slate-500 truncate">{displayEmail}</p>
           </div>
         </div>
+        {/* Support button */}
+        <a href="https://t.me/astakor9" target="_blank" rel="noopener noreferrer"
+          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] transition-all duration-200 text-sm font-medium"
+          style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.18)", color: "#60A5FA" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.14)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.08)"; }}>
+          <div className="w-8 h-8 rounded-[10px] flex items-center justify-center text-sm shrink-0"
+            style={{ background: "rgba(59,130,246,0.18)" }}>
+            💬
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-blue-300 font-semibold text-xs">الدعم الفني</p>
+            <p className="text-blue-400/60 text-[10px]">@astakor9</p>
+          </div>
+        </a>
+
         <button onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-[14px] text-red-400 hover:text-red-300 transition-all duration-200 text-sm font-medium group"
           style={{ background: "transparent" }}

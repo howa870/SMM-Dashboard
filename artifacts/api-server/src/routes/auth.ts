@@ -123,6 +123,46 @@ router.post("/logout", (req, res) => {
   res.json({ message: "تم تسجيل الخروج بنجاح" });
 });
 
+/**
+ * POST /api/auth/jwt-sync
+ * Accepts a Supabase JWT, verifies it, and issues a backend session cookie.
+ * Used to restore backend sessions for existing Supabase users on page load.
+ */
+router.post("/jwt-sync", async (req, res) => {
+  try {
+    const { jwt } = req.body as { jwt?: string };
+    if (!jwt || !supabaseAdmin) {
+      res.status(400).json({ error: "Missing JWT or Supabase config" });
+      return;
+    }
+    // Verify the Supabase JWT
+    const { data, error } = await supabaseAdmin.auth.getUser(jwt);
+    if (error || !data?.user?.email) {
+      res.status(401).json({ error: "JWT inválido" });
+      return;
+    }
+    const email = data.user.email;
+    // Find or create the user in Drizzle
+    let [user] = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    if (!user) {
+      // Auto-create user from Supabase data
+      const name = (data.user.user_metadata as { name?: string })?.name || email.split("@")[0];
+      const fakeHash = await bcrypt.hash(Math.random().toString(36), 8);
+      const [inserted] = await db.insert(usersTable).values({ email, name, password: fakeHash, role: "user" }).returning();
+      user = inserted;
+    }
+    const token = createSession(user.id, user.role);
+    res.cookie("session", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, sameSite: "lax", path: "/" });
+    res.json({
+      user: { id: user.id, email: user.email, name: user.name, balance: parseFloat(user.balance), role: user.role },
+      token,
+    });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "خطأ في الخادم" });
+  }
+});
+
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);

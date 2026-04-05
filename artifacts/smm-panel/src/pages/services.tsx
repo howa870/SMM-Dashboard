@@ -129,9 +129,10 @@ export function Services() {
     return Object.entries(map).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   }, [services]);
 
-  // Services for the selected platform
+  // Services for the selected platform (special case: free services)
   const platformServices = useMemo(() => {
     if (!services) return [];
+    if (selectedPlatform === "🆓 مجاني") return services.filter(s => s.price === 0);
     return services.filter(s => (s.platform || "Other") === selectedPlatform);
   }, [services, selectedPlatform]);
 
@@ -226,6 +227,32 @@ export function Services() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {/* Free services special tile */}
+                {services && services.some(s => s.price === 0) && (
+                  <button onClick={() => { setSelectedPlatform("🆓 مجاني"); setSelectedType("all"); setSearch(""); }}
+                    className="group p-4 rounded-2xl border bg-gradient-to-br from-green-700/20 to-emerald-700/20 border-green-500/40 hover:shadow-lg shadow-green-500/20 transition-all hover:scale-[1.03] active:scale-100 text-right flex flex-col gap-2.5">
+                    <div className="flex items-start justify-between">
+                      <span className="text-2xl select-none">🆓</span>
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-lg text-green-400">
+                          {services.filter(s => s.price === 0).length}
+                        </span>
+                        <p className="text-[10px] text-gray-500">خدمة</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-green-400">خدمات مجانية</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                        <span className="text-[10px] text-green-400">مجاناً تماماً!</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-[10px] text-gray-500">عرض الخدمات</span>
+                      <ArrowRight className="w-3 h-3 text-green-400" />
+                    </div>
+                  </button>
+                )}
                 {platformStats.map(({ name, count }) => {
                   const meta = getMeta(name);
                   return (

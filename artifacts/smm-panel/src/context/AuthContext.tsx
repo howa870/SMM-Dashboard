@@ -19,21 +19,44 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const [session, setSession]           = useState<Session | null>(null);
   const [isLoading, setIsLoading]       = useState(true);
 
+  // ── JWT sync: exchange Supabase JWT for backend session cookie ──────────────
+  const jwtSync = async (accessToken: string) => {
+    try {
+      const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+      const res = await fetch(`${apiBase}/api/auth/jwt-sync`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jwt: accessToken }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.token) storeToken(json.token);
+      if (res.ok) console.log("[AuthContext] jwt-sync OK");
+    } catch (err) {
+      console.warn("[AuthContext] jwt-sync failed:", err instanceof Error ? err.message : err);
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession()
       .then(({ data: { session: s } }) => {
         setSession(s);
         setSupabaseUser(s?.user ?? null);
         setIsLoading(false);
+        // Restore backend session from Supabase JWT on page load
+        if (s?.access_token) jwtSync(s.access_token);
       })
       .catch((err) => {
         console.error("[AuthContext] getSession failed:", err?.message ?? err);
         setIsLoading(false);
       });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       setSupabaseUser(s?.user ?? null);
+      // Also sync on sign-in events (e.g. token refresh)
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && s?.access_token) {
+        jwtSync(s.access_token);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -43,15 +66,36 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const syncWithBackend = async (email: string, password: string, name?: string) => {
     try {
       const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
-      if (!apiBase) return;
-      const endpoint = name ? `${apiBase}/api/auth/register` : `${apiBase}/api/auth/login`;
-      const res = await fetch(endpoint, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(name ? { name, email, password } : { email, password }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (json.token) storeToken(json.token);
+      const doFetch = async (endpoint: string, body: object) =>
+        fetch(endpoint, {
+          method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+      if (name) {
+        // Registration: try register, ignore "already exists" error
+        const res = await doFetch(`${apiBase}/api/auth/register`, { name, email, password });
+        const json = await res.json().catch(() => ({}));
+        if (json.token) storeToken(json.token);
+        if (res.ok) { console.log("[AuthContext] backend register OK"); return; }
+        // If already registered in backend, fall through to login
+      }
+
+      // Login (or fallback after failed register)
+      const loginRes = await doFetch(`${apiBase}/api/auth/login`, { email, password });
+      const loginJson = await loginRes.json().catch(() => ({}));
+      if (loginJson.token) storeToken(loginJson.token);
+      if (loginRes.ok) { console.log("[AuthContext] backend login OK"); return; }
+
+      // User not in Drizzle DB yet (Supabase-only user) → auto-create
+      if (loginRes.status === 401) {
+        const supabaseName = name || email.split("@")[0];
+        const regRes = await doFetch(`${apiBase}/api/auth/register`, { name: supabaseName, email, password });
+        const regJson = await regRes.json().catch(() => ({}));
+        if (regJson.token) storeToken(regJson.token);
+        if (regRes.ok) console.log("[AuthContext] backend auto-register OK");
+      }
     } catch (err) {
       console.warn("[AuthContext] syncWithBackend failed (non-blocking):", err instanceof Error ? err.message : err);
     }

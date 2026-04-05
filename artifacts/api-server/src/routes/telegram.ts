@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { db as drizzleDb, paymentsTable, usersTable } from "@workspace/db";
+import { eq, count as drizzleCount, sum as drizzleSum } from "drizzle-orm";
 
 const router = Router();
 
@@ -11,7 +13,7 @@ const SUPABASE_URL = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_U
 const SUPABASE_KEY = process.env["SUPABASE_SERVICE_ROLE_KEY"] || "";
 
 if (!BOT_TOKEN)    console.error("[TG] ❌ TELEGRAM_BOT_TOKEN not set");
-if (!SUPABASE_KEY) console.error("[TG] ❌ SUPABASE_SERVICE_ROLE_KEY not set");
+if (!SUPABASE_KEY) console.warn("[TG] ⚠️  SUPABASE_SERVICE_ROLE_KEY not set (Supabase features limited)");
 if (!ADMIN_ID)     console.warn("[TG] ⚠️  TELEGRAM_ADMIN_ID not set — admin check disabled");
 
 // Admin Supabase client — bypasses RLS
@@ -98,6 +100,18 @@ function isAdmin(fromId: number): boolean {
 }
 
 // ─── KEYBOARDS ───────────────────────────────────────────────────────────────
+const PERSISTENT_KEYBOARD = {
+  keyboard: [
+    ["📊 الإحصائيات",      "💰 الأرباح"],
+    ["📥 الطلبات المعلقة", "👥 المستخدمين"],
+    ["➕ إضافة رصيد",      "⚙️ تعديل الأرقام"],
+    ["🔄 تحديث"],
+  ],
+  resize_keyboard: true,
+  persistent: true,
+  is_persistent: true,
+};
+
 const MAIN_MENU = {
   inline_keyboard: [
     [
@@ -127,22 +141,25 @@ const EDIT_NUMBERS_MENU = {
   ],
 };
 
-// ─── ADMIN STATS ─────────────────────────────────────────────────────────────
+// ─── ADMIN STATS (uses Drizzle for accurate counts) ──────────────────────────
 async function getStats() {
-  if (!db) return null;
-  const [users, allPayments, approvedPayments, pending] = await Promise.all([
-    db.from("profiles").select("id", { count: "exact", head: true }),
-    db.from("payments").select("id", { count: "exact", head: true }),
-    db.from("payments").select("amount").eq("status", "approved"),
-    db.from("payments").select("id", { count: "exact", head: true }).eq("status", "pending"),
-  ]);
-  const totalRevenue = (approvedPayments.data || []).reduce((s, p) => s + Number(p.amount), 0);
-  return {
-    totalUsers:    users.count    || 0,
-    totalPayments: allPayments.count || 0,
-    pendingCount:  pending.count  || 0,
-    totalRevenue,
-  };
+  try {
+    const [usersRow] = await drizzleDb.select({ total: drizzleCount() }).from(usersTable);
+    const [allPayRow] = await drizzleDb.select({ total: drizzleCount() }).from(paymentsTable);
+    const [pendingRow] = await drizzleDb.select({ total: drizzleCount() }).from(paymentsTable)
+      .where(eq(paymentsTable.status, "pending"));
+    const [approvedRow] = await drizzleDb.select({ rev: drizzleSum(paymentsTable.amount) }).from(paymentsTable)
+      .where(eq(paymentsTable.status, "approved"));
+    return {
+      totalUsers:    usersRow?.total    || 0,
+      totalPayments: allPayRow?.total   || 0,
+      pendingCount:  pendingRow?.total  || 0,
+      totalRevenue:  Number(approvedRow?.rev || 0),
+    };
+  } catch (err) {
+    console.error("[TG] getStats error:", err);
+    return null;
+  }
 }
 
 async function sendStats(chatId: number | string) {
@@ -163,99 +180,111 @@ async function sendStats(chatId: number | string) {
 
 // ─── REVENUE REPORT ──────────────────────────────────────────────────────────
 async function sendRevenue(chatId: number | string) {
-  if (!db) { await sendMessage(chatId, "⚠️ تعذر الاتصال بقاعدة البيانات"); return; }
-  const today = new Date().toISOString().slice(0, 10);
-  const [all, todayRows, approved, pending, rejected] = await Promise.all([
-    db.from("payments").select("amount").eq("status", "approved"),
-    db.from("payments").select("amount").eq("status", "approved").gte("created_at", today),
-    db.from("payments").select("id", { count: "exact", head: true }).eq("status", "approved"),
-    db.from("payments").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    db.from("payments").select("id", { count: "exact", head: true }).eq("status", "rejected"),
-  ]);
-  const totalRev = (all.data || []).reduce((s, p) => s + Number(p.amount), 0);
-  const todayRev = (todayRows.data || []).reduce((s, p) => s + Number(p.amount), 0);
-  const text = [
-    "💰 <b>تقرير الأرباح</b>",
-    "",
-    `📅 إيرادات اليوم:    <b>${todayRev.toLocaleString()} IQD</b>`,
-    `📈 إجمالي الإيرادات: <b>${totalRev.toLocaleString()} IQD</b>`,
-    "",
-    `✅ مقبولة:  <b>${approved.count || 0}</b>`,
-    `⏳ معلقة:   <b>${pending.count  || 0}</b>`,
-    `❌ مرفوضة: <b>${rejected.count || 0}</b>`,
-    "",
-    `🕐 ${new Date().toLocaleString("ar-IQ")}`,
-  ].join("\n");
-  await sendMessage(chatId, text, { reply_markup: MAIN_MENU });
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const allPayments = await drizzleDb.select().from(paymentsTable);
+    const approved  = allPayments.filter(p => p.status === "approved");
+    const todayApproved = approved.filter(p => new Date(p.createdAt) >= today);
+    const pending   = allPayments.filter(p => p.status === "pending");
+    const rejected  = allPayments.filter(p => p.status === "rejected");
+
+    const totalRev = approved.reduce((s, p) => s + parseFloat(p.amount), 0);
+    const todayRev = todayApproved.reduce((s, p) => s + parseFloat(p.amount), 0);
+
+    const text = [
+      "💰 <b>تقرير الأرباح</b>",
+      "",
+      `📅 إيرادات اليوم:    <b>${todayRev.toLocaleString()} IQD</b>`,
+      `📈 إجمالي الإيرادات: <b>${totalRev.toLocaleString()} IQD</b>`,
+      "",
+      `✅ مقبولة:  <b>${approved.length}</b>`,
+      `⏳ معلقة:   <b>${pending.length}</b>`,
+      `❌ مرفوضة: <b>${rejected.length}</b>`,
+      "",
+      `🕐 ${new Date().toLocaleString("ar-IQ")}`,
+    ].join("\n");
+    await sendMessage(chatId, text, { reply_markup: MAIN_MENU });
+  } catch (err) {
+    console.error("[TG] sendRevenue error:", err);
+    await sendMessage(chatId, "⚠️ خطأ في تحميل تقرير الأرباح");
+  }
 }
 
 // ─── PENDING PAYMENTS LIST ───────────────────────────────────────────────────
 async function sendPaymentsList(chatId: number | string) {
-  if (!db) { await sendMessage(chatId, "⚠️ تعذر الاتصال بقاعدة البيانات"); return; }
-  const { data, error } = await db
-    .from("payments")
-    .select("id, amount, method, status, created_at, user_id, transaction_id, proof_url")
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
+  try {
+    const pendingPayments = await drizzleDb.select({
+      payment: paymentsTable,
+      user: usersTable,
+    })
+    .from(paymentsTable)
+    .leftJoin(usersTable, eq(paymentsTable.userId, usersTable.id))
+    .where(eq(paymentsTable.status, "pending"))
     .limit(10);
 
-  if (error) { await sendMessage(chatId, `⚠️ خطأ: ${error.message}`); return; }
-  if (!data || data.length === 0) {
-    await sendMessage(chatId, "✅ لا توجد طلبات شحن معلقة حالياً", { reply_markup: MAIN_MENU });
-    return;
+    if (pendingPayments.length === 0) {
+      await sendMessage(chatId, "✅ لا توجد طلبات شحن معلقة حالياً", { reply_markup: MAIN_MENU });
+      return;
+    }
+
+    const methodLabel: Record<string, string> = {
+      zaincash: "زين كاش 💳", asiahawala: "آسياسيل 📱", stripe: "Stripe 💳",
+    };
+
+    await sendMessage(chatId, `📥 <b>${pendingPayments.length} طلب شحن معلق</b>\n━━━━━━━━━━━━━━━━`);
+
+    for (const { payment: pay, user } of pendingPayments) {
+      const lines = [
+        `🆔 <b>طلب رقم:</b> #${pay.id}`,
+        `👤 <b>المستخدم:</b> ${user?.name || user?.email || "مجهول"}`,
+        `💰 <b>المبلغ:</b> ${parseFloat(pay.amount).toLocaleString()} IQD`,
+        `💳 <b>الطريقة:</b> ${methodLabel[pay.method] || pay.method}`,
+        pay.transactionId ? `🧾 <b>TXID:</b> <code>${pay.transactionId}</code>` : null,
+        pay.receiptUrl ? `📸 <a href="${pay.receiptUrl}">إثبات الدفع</a>` : null,
+        `⏱ ${new Date(pay.createdAt).toLocaleString("ar-IQ")}`,
+      ].filter(Boolean).join("\n");
+
+      await sendMessage(chatId, lines, {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "✅ قبول", callback_data: `approve_${pay.id}` },
+            { text: "❌ رفض",  callback_data: `reject_${pay.id}`  },
+          ]],
+        },
+      });
+    }
+    await sendMessage(chatId, "━━━━━━━━━━━━━━━━", { reply_markup: MAIN_MENU });
+  } catch (err) {
+    console.error("[TG] sendPaymentsList error:", err);
+    await sendMessage(chatId, "⚠️ خطأ في تحميل قائمة الطلبات");
   }
-
-  const methodLabel: Record<string, string> = {
-    zaincash: "زين كاش 💳", asiacell: "آسياسيل 📱", qicard: "QiCard 💰", manual: "يدوي 🏦",
-  };
-
-  await sendMessage(chatId, `📥 <b>آخر ${data.length} طلب شحن معلق</b>\n━━━━━━━━━━━━━━━━`);
-
-  for (const pay of data) {
-    const shortId = String(pay.id).slice(0, 8);
-    const lines = [
-      `🆔 <code>${shortId}…</code>`,
-      `💰 <b>${Number(pay.amount).toLocaleString()} IQD</b>`,
-      `💳 ${methodLabel[pay.method] || pay.method}`,
-      pay.transaction_id ? `🔢 TXID: <code>${pay.transaction_id}</code>` : null,
-      pay.proof_url ? `📸 <a href="${pay.proof_url}">إثبات الدفع</a>` : null,
-      `⏱ ${new Date(pay.created_at).toLocaleString("ar-IQ")}`,
-    ].filter(Boolean).join("\n");
-
-    await sendMessage(chatId, lines, {
-      reply_markup: {
-        inline_keyboard: [[
-          { text: "✅ قبول", callback_data: `approve_${pay.id}` },
-          { text: "❌ رفض",  callback_data: `reject_${pay.id}`  },
-        ]],
-      },
-    });
-  }
-  await sendMessage(chatId, "━━━━━━━━━━━━━━━━", { reply_markup: MAIN_MENU });
 }
 
 // ─── USERS LIST ───────────────────────────────────────────────────────────────
 async function sendUsers(chatId: number | string) {
-  if (!db) { await sendMessage(chatId, "⚠️ تعذر الاتصال بقاعدة البيانات"); return; }
-  const { data, count, error } = await db
-    .from("profiles")
-    .select("id, name, email, balance, role, created_at", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .limit(5);
-  if (error) { await sendMessage(chatId, `⚠️ خطأ: ${error.message}`); return; }
+  try {
+    const users = await drizzleDb.select().from(usersTable).limit(10);
+    const [totalRow] = await drizzleDb.select({ total: drizzleCount() }).from(usersTable);
+    const total = totalRow?.total || 0;
 
-  const lines = [`👥 <b>المستخدمون (إجمالي: ${count || 0})</b>\n━━━━━━━━━━━━━━━━`];
-  for (const u of (data || [])) {
-    lines.push(
-      `👤 ${u.name || "بدون اسم"}${u.role === "admin" ? " 🛡" : ""}`,
-      `📧 ${u.email || "—"}`,
-      `💰 ${Number(u.balance).toLocaleString()} IQD`,
-      `🆔 <code>${String(u.id).slice(0, 8)}…</code>`,
-      "─────────────",
-    );
+    const lines = [`👥 <b>المستخدمون (إجمالي: ${total})</b>\n━━━━━━━━━━━━━━━━`];
+    for (const u of users) {
+      lines.push(
+        `👤 ${u.name || "بدون اسم"}${u.role === "admin" ? " 🛡" : ""}`,
+        `📧 ${u.email || "—"}`,
+        `💰 ${parseFloat(u.balance).toLocaleString()} IQD`,
+        `🆔 <code>#${u.id}</code>`,
+        "─────────────",
+      );
+    }
+    if (total > 10) lines.push(`… و ${total - 10} مستخدم آخر`);
+    await sendMessage(chatId, lines.join("\n"), { reply_markup: MAIN_MENU });
+  } catch (err) {
+    console.error("[TG] sendUsers error:", err);
+    await sendMessage(chatId, "⚠️ خطأ في تحميل قائمة المستخدمين");
   }
-  if ((count || 0) > 5) lines.push(`… و ${(count || 0) - 5} مستخدم آخر`);
-  await sendMessage(chatId, lines.join("\n"), { reply_markup: MAIN_MENU });
 }
 
 // ─── EDIT NUMBER: send sub-menu ───────────────────────────────────────────────
@@ -330,140 +359,111 @@ async function promptAddBalance(chatId: number | string, fromId: number) {
   await sendMessage(chatId, [
     "➕ <b>إضافة رصيد يدوياً</b>",
     "",
-    "أرسل: <code>user_id المبلغ</code>",
+    "أرسل: <code>رقم_المستخدم المبلغ</code>",
     "",
-    "مثال:",
-    "<code>1d8203d5-a95c-42c8-883d-84920c2e5ab7 5000</code>",
+    "مثال (رقم المستخدم من الجدول):",
+    "<code>42 5000</code>",
     "",
     "<i>أو /cancel للإلغاء</i>",
   ].join("\n"));
 }
 
-// ─── ADD BALANCE: process ──────────────────────────────────────────────────────
+// ─── ADD BALANCE: process (uses Drizzle) ──────────────────────────────────────
 async function processAddBalance(chatId: number | string, fromId: number, text: string) {
   userState.delete(fromId);
-  if (!db) { await sendMessage(chatId, "⚠️ قاعدة البيانات غير متاحة"); return; }
 
   const parts = text.trim().split(/\s+/);
   if (parts.length < 2) {
-    await sendMessage(chatId, "❌ صيغة خاطئة.\nأرسل: <code>user_id المبلغ</code>", { reply_markup: MAIN_MENU });
+    await sendMessage(chatId, "❌ صيغة خاطئة.\nأرسل: <code>رقم_المستخدم المبلغ</code>", { reply_markup: MAIN_MENU });
     return;
   }
-  const userId = parts[0];
+  const userId = parseInt(parts[0]);
   const amount = Number(parts[1]);
-  if (!userId || isNaN(amount) || amount <= 0) {
-    await sendMessage(chatId, "❌ user_id أو المبلغ غير صحيح.", { reply_markup: MAIN_MENU });
+  if (isNaN(userId) || userId <= 0 || isNaN(amount) || amount <= 0) {
+    await sendMessage(chatId, "❌ رقم المستخدم أو المبلغ غير صحيح.", { reply_markup: MAIN_MENU });
     return;
   }
 
-  const { data: profile, error: profErr } = await db
-    .from("profiles")
-    .select("id, name, email, balance")
-    .eq("id", userId)
-    .maybeSingle();
-  if (profErr || !profile) {
-    await sendMessage(chatId, `❌ لم يتم إيجاد مستخدم بهذا ID:\n<code>${userId}</code>`, { reply_markup: MAIN_MENU });
-    return;
+  try {
+    const [user] = await drizzleDb.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    if (!user) {
+      await sendMessage(chatId, `❌ لم يتم إيجاد مستخدم برقم: <code>${userId}</code>`, { reply_markup: MAIN_MENU });
+      return;
+    }
+
+    const oldBalance = parseFloat(user.balance);
+    const newBalance = oldBalance + amount;
+    await drizzleDb.update(usersTable).set({ balance: String(newBalance) }).where(eq(usersTable.id, userId));
+
+    console.log(`[TG] ✅ Added ${amount} IQD to user #${userId}. New balance: ${newBalance}`);
+    await sendMessage(chatId, [
+      "✅ <b>تم إضافة الرصيد بنجاح</b>",
+      "",
+      `👤 ${user.name || user.email}`,
+      `🆔 رقم المستخدم: #${userId}`,
+      `💰 السابق: <b>${oldBalance.toLocaleString()} IQD</b>`,
+      `➕ المضاف: <b>${amount.toLocaleString()} IQD</b>`,
+      `💳 الجديد: <b>${newBalance.toLocaleString()} IQD</b>`,
+    ].join("\n"), { reply_markup: MAIN_MENU });
+  } catch (err) {
+    console.error("[TG] processAddBalance error:", err);
+    await sendMessage(chatId, `❌ خطأ: ${err instanceof Error ? err.message : String(err)}`, { reply_markup: MAIN_MENU });
   }
-
-  // Use increment_balance RPC (atomic), fallback to manual update
-  let balanceError: string | null = null;
-  const { error: rpcErr } = await db.rpc("increment_balance", { uid: userId, amount });
-  if (rpcErr) {
-    const newBalance = Number(profile.balance) + amount;
-    const { error: manualErr } = await db.from("profiles").update({ balance: newBalance }).eq("id", userId);
-    if (manualErr) balanceError = manualErr.message;
-  }
-
-  if (balanceError) {
-    await sendMessage(chatId, `❌ فشل تحديث الرصيد: ${balanceError}`, { reply_markup: MAIN_MENU });
-    return;
-  }
-
-  // Notification
-  await db.from("notifications").insert({
-    user_id: userId,
-    title: "💰 تم إضافة رصيد",
-    message: `تم إضافة ${amount.toLocaleString()} IQD إلى حسابك من قِبل الإدارة.`,
-    is_read: false,
-  }).then(r => { if (r.error) console.warn("[TG] addBalance notif:", r.error.message); });
-
-  const newBal = Number(profile.balance) + amount;
-  console.log(`[TG] ✅ Added ${amount} IQD to ${userId}. New balance: ${newBal}`);
-  await sendMessage(chatId, [
-    "✅ <b>تم إضافة الرصيد بنجاح</b>",
-    "",
-    `👤 ${profile.name || profile.email || userId}`,
-    `💰 السابق: <b>${Number(profile.balance).toLocaleString()} IQD</b>`,
-    `➕ المضاف: <b>${amount.toLocaleString()} IQD</b>`,
-    `💳 الجديد: <b>${newBal.toLocaleString()} IQD</b>`,
-  ].join("\n"), { reply_markup: MAIN_MENU });
 }
 
 // ─── APPROVE / REJECT PAYMENT ────────────────────────────────────────────────
+// Uses Drizzle ORM (Replit PostgreSQL) — the actual payments & users tables
 async function approvePayment(paymentId: string, adminName: string): Promise<string> {
-  if (!db) return "❌ قاعدة البيانات غير متاحة";
+  try {
+    const id = parseInt(paymentId);
+    if (isNaN(id)) return `❌ معرف طلب غير صالح: ${paymentId}`;
 
-  const { data: payment, error: fetchErr } = await db
-    .from("payments")
-    .select("id, user_id, amount, status")
-    .eq("id", paymentId)
-    .maybeSingle();
-  if (fetchErr || !payment) return `❌ الطلب غير موجود (${paymentId.slice(0, 8)}…)`;
-  if (payment.status !== "pending") return `⚠️ الطلب معالَج مسبقاً: ${payment.status}`;
+    const [payment] = await drizzleDb.select().from(paymentsTable).where(eq(paymentsTable.id, id)).limit(1);
+    if (!payment) return `❌ الطلب غير موجود (#${id})`;
+    if (payment.status !== "pending") return `⚠️ الطلب معالَج مسبقاً: ${payment.status}`;
 
-  // Fetch profile for fallback balance
-  const { data: profile } = await db.from("profiles").select("balance").eq("id", payment.user_id).maybeSingle();
+    const [user] = await drizzleDb.select().from(usersTable).where(eq(usersTable.id, payment.userId)).limit(1);
+    if (!user) return `❌ المستخدم غير موجود (${payment.userId})`;
 
-  // increment_balance RPC (atomic)
-  const { error: rpcErr } = await db.rpc("increment_balance", {
-    uid: payment.user_id,
-    amount: Number(payment.amount),
-  });
-  if (rpcErr) {
-    // Fallback
-    const newBal = Number(profile?.balance || 0) + Number(payment.amount);
-    const { error: fallErr } = await db.from("profiles").update({ balance: newBal }).eq("id", payment.user_id);
-    if (fallErr) return `❌ فشل تحديث الرصيد: ${fallErr.message}`;
+    const newBalance = parseFloat(user.balance) + parseFloat(payment.amount);
+    await drizzleDb.update(usersTable).set({ balance: String(newBalance) }).where(eq(usersTable.id, payment.userId));
+    await drizzleDb.update(paymentsTable).set({ status: "approved" }).where(eq(paymentsTable.id, id));
+
+    console.log(`[TG] ✅ Approved #${id} — +${payment.amount} IQD → user ${payment.userId} (new balance: ${newBalance})`);
+    return [
+      `💰 <b>المبلغ المُضاف:</b> ${parseFloat(payment.amount).toLocaleString()} IQD`,
+      `👤 <b>المستخدم:</b> ${user.name || user.email}`,
+      `💳 <b>الرصيد الجديد:</b> ${newBalance.toLocaleString()} IQD`,
+      `🆔 <b>طلب رقم:</b> #${id}`,
+      `✅ <b>بواسطة:</b> ${adminName}`,
+    ].join("\n");
+  } catch (err) {
+    console.error("[TG] approvePayment error:", err);
+    return `❌ خطأ في المعالجة: ${err instanceof Error ? err.message : String(err)}`;
   }
-
-  const { error: payErr } = await db.from("payments").update({ status: "approved" }).eq("id", paymentId);
-  if (payErr) return `❌ فشل تحديث الطلب: ${payErr.message}`;
-
-  await db.from("notifications").insert({
-    user_id: payment.user_id,
-    title: "✅ تم شحن رصيدك",
-    message: `تم إضافة ${Number(payment.amount).toLocaleString()} IQD إلى حسابك بنجاح.`,
-    is_read: false,
-  }).then(r => { if (r.error) console.warn("[TG] approve notif:", r.error.message); });
-
-  console.log(`[TG] ✅ Approved ${paymentId} — +${payment.amount} IQD → ${payment.user_id}`);
-  return `💰 المبلغ المُضاف: <b>${Number(payment.amount).toLocaleString()} IQD</b>\n🆔 رقم الطلب: <code>${String(paymentId).slice(0,8)}…</code>\n👤 بواسطة: ${adminName}`;
 }
 
 async function rejectPayment(paymentId: string, adminName: string): Promise<string> {
-  if (!db) return "❌ قاعدة البيانات غير متاحة";
+  try {
+    const id = parseInt(paymentId);
+    if (isNaN(id)) return `❌ معرف طلب غير صالح: ${paymentId}`;
 
-  const { data: payment, error } = await db
-    .from("payments")
-    .select("id, user_id, amount, status")
-    .eq("id", paymentId)
-    .maybeSingle();
-  if (error || !payment) return `❌ الطلب غير موجود (${paymentId.slice(0, 8)}…)`;
-  if (payment.status !== "pending") return `⚠️ الطلب معالَج مسبقاً: ${payment.status}`;
+    const [payment] = await drizzleDb.select().from(paymentsTable).where(eq(paymentsTable.id, id)).limit(1);
+    if (!payment) return `❌ الطلب غير موجود (#${id})`;
+    if (payment.status !== "pending") return `⚠️ الطلب معالَج مسبقاً: ${payment.status}`;
 
-  const { error: updErr } = await db.from("payments").update({ status: "rejected" }).eq("id", paymentId);
-  if (updErr) return `❌ فشل تحديث الطلب: ${updErr.message}`;
+    await drizzleDb.update(paymentsTable).set({ status: "rejected" }).where(eq(paymentsTable.id, id));
 
-  await db.from("notifications").insert({
-    user_id: payment.user_id,
-    title: "❌ تم رفض طلب الشحن",
-    message: `تم رفض طلب شحن بمبلغ ${Number(payment.amount).toLocaleString()} IQD. يرجى التواصل مع الدعم.`,
-    is_read: false,
-  }).then(r => { if (r.error) console.warn("[TG] reject notif:", r.error.message); });
-
-  console.log(`[TG] ❌ Rejected ${paymentId} by ${adminName}`);
-  return `🆔 رقم الطلب: <code>${String(paymentId).slice(0,8)}…</code>\n👤 بواسطة: ${adminName}`;
+    console.log(`[TG] ❌ Rejected #${id} by ${adminName}`);
+    return [
+      `🆔 <b>طلب رقم:</b> #${id}`,
+      `💰 <b>المبلغ:</b> ${parseFloat(payment.amount).toLocaleString()} IQD`,
+      `❌ <b>تم الرفض بواسطة:</b> ${adminName}`,
+    ].join("\n");
+  } catch (err) {
+    console.error("[TG] rejectPayment error:", err);
+    return `❌ خطأ في المعالجة: ${err instanceof Error ? err.message : String(err)}`;
+  }
 }
 
 // ─── /setnumbers COMMAND ──────────────────────────────────────────────────────
@@ -526,7 +526,11 @@ async function handleMessage(chatId: number, fromId: number, fromName: string, t
   // /start or /menu
   if (text === "/start" || text === "/menu") {
     userState.delete(fromId);
-    await sendMessage(chatId, `👋 أهلاً <b>${fromName}</b>!\n\n🤖 <b>Perfect Follow — لوحة تحكم البوت</b>\n\nاختر إجراءً:`, { reply_markup: MAIN_MENU });
+    await sendMessage(chatId,
+      `👋 أهلاً <b>${fromName}</b>!\n\n🤖 <b>Boost Iraq — لوحة تحكم الأدمن</b>\n\nستظهر أزرار القائمة أدناه. اختر إجراءً:`,
+      { reply_markup: PERSISTENT_KEYBOARD }
+    );
+    await sendStats(chatId);
     return;
   }
 
@@ -535,6 +539,21 @@ async function handleMessage(chatId: number, fromId: number, fromName: string, t
 
   // /setnumbers
   if (text.startsWith("/setnumbers")) { await handleSetNumbers(chatId, text); return; }
+
+  // ── Handle persistent keyboard button texts ────────────────────────────────
+  const KEYBOARD_MAP: Record<string, () => Promise<void>> = {
+    "📊 الإحصائيات":      () => sendStats(chatId),
+    "💰 الأرباح":         () => sendRevenue(chatId),
+    "📥 الطلبات المعلقة": () => sendPaymentsList(chatId),
+    "👥 المستخدمين":      () => sendUsers(chatId),
+    "🔄 تحديث":           () => sendStats(chatId),
+    "➕ إضافة رصيد":      () => promptAddBalance(chatId, fromId),
+    "⚙️ تعديل الأرقام":  () => sendEditNumbersMenu(chatId),
+  };
+  if (KEYBOARD_MAP[text]) {
+    await KEYBOARD_MAP[text]();
+    return;
+  }
 
   // Multi-step flow: edit_number
   if (state?.flow === "edit_number") {

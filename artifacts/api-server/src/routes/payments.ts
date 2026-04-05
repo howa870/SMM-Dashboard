@@ -6,6 +6,61 @@ import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import path from "path";
 import fs from "fs";
 
+// ─── TELEGRAM NOTIFICATION ────────────────────────────────────────────────────
+async function notifyTelegramNewPayment(
+  payment: typeof paymentsTable.$inferSelect,
+  userName: string,
+  userEmail: string
+) {
+  const BOT_TOKEN = process.env["TELEGRAM_BOT_TOKEN"] || "";
+  const CHAT_ID   = process.env["TELEGRAM_CHAT_ID"] || process.env["TELEGRAM_ADMIN_ID"] || "";
+  if (!BOT_TOKEN || !CHAT_ID) return;
+
+  const methodLabel: Record<string, string> = {
+    zaincash:   "زين كاش 💳",
+    asiahawala: "آسياسيل 📱",
+    stripe:     "Stripe 💳",
+  };
+
+  const text = [
+    "📥 <b>طلب شحن جديد!</b>",
+    "",
+    `👤 <b>المستخدم:</b> ${userName || userEmail}`,
+    `💰 <b>المبلغ:</b> <code>${parseFloat(payment.amount).toLocaleString()} IQD</code>`,
+    `💳 <b>الطريقة:</b> ${methodLabel[payment.method] || payment.method}`,
+    payment.transactionId ? `🧾 <b>TXID:</b> <code>${payment.transactionId}</code>` : null,
+    payment.receiptUrl ? `📸 <a href="${payment.receiptUrl}">إثبات الدفع</a>` : null,
+    payment.notes ? `📝 <b>ملاحظات:</b> ${payment.notes}` : null,
+    "",
+    `🆔 <b>طلب رقم:</b> #${payment.id}`,
+    `⏱ ${new Date().toLocaleString("ar-IQ")}`,
+  ].filter(Boolean).join("\n");
+
+  const markup = {
+    inline_keyboard: [[
+      { text: "✅ قبول", callback_data: `approve_${payment.id}` },
+      { text: "❌ رفض",  callback_data: `reject_${payment.id}`  },
+    ]],
+  };
+
+  try {
+    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id:                  CHAT_ID,
+        text,
+        parse_mode:               "HTML",
+        disable_web_page_preview: true,
+        reply_markup:             markup,
+      }),
+    });
+    console.log(`[Payments] ✅ Telegram notified for payment #${payment.id}`);
+  } catch (err) {
+    console.error("[Payments] Telegram notify error:", err);
+  }
+}
+
 const router = Router();
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 
@@ -64,6 +119,11 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     }).returning();
     const formatted = await formatPayment(payment);
     res.status(201).json(formatted);
+
+    // Notify admin via Telegram (fire-and-forget)
+    const [user] = await db.select({ name: usersTable.name, email: usersTable.email })
+      .from(usersTable).where(eq(usersTable.id, req.userId!)).limit(1);
+    notifyTelegramNewPayment(payment, user?.name || "", user?.email || "").catch(() => {});
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "خطأ في الخادم" });

@@ -182,6 +182,28 @@ export function Dashboard() {
           ))}
         </div>
 
+        {/* Instagram promo card */}
+        <a href="https://www.instagram.com/_eufx" target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-4 p-4 rounded-2xl border border-pink-500/30 bg-gradient-to-l from-pink-600/10 to-purple-600/10 hover:from-pink-600/15 hover:to-purple-600/15 transition-all group cursor-pointer">
+          <div className="relative shrink-0">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-yellow-500 p-[2px]">
+              <div className="w-full h-full rounded-full bg-[#0f0f1a] flex items-center justify-center">
+                <FaInstagram className="text-pink-400 w-7 h-7" />
+              </div>
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-blue-500 border-2 border-[#0f0f1a] flex items-center justify-center">
+              <span className="text-[8px] text-white font-black">✓</span>
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-bold text-sm">@_eufx</p>
+            <p className="text-gray-400 text-xs mt-0.5">تابعنا على إنستقرام للعروض الحصرية والأخبار</p>
+          </div>
+          <div className="shrink-0 bg-gradient-to-r from-pink-600 to-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl group-hover:from-pink-500 group-hover:to-purple-500 transition-all">
+            متابعة
+          </div>
+        </a>
+
         {/* Popular services */}
         <div>
           <div className="flex items-center justify-between mb-4">
