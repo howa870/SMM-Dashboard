@@ -889,6 +889,218 @@ th { color: var(--theme-text-muted); }
 /* ─── Sidebar / header text always readable ──────────────────────────────────── */
 .sidebar-label { color: var(--theme-text); font-weight: 600; }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   .db-page — Dashboard scoped theme helpers
+   :root  = light mode  →  dark text on light surfaces
+   .dark  = dark mode   →  white text on dark surfaces
+   All selectors are scoped to .db-page to avoid breaking other pages.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Core text helpers ───────────────────────────────────────────────────────── */
+.db-text          { color: var(--theme-text); }
+.db-muted         { color: var(--theme-text-muted); }
+.db-faint         { color: var(--theme-text-faint); }
+
+/* ── Accent (prices, balances, links) ────────────────────────────────────────── */
+:root .db-accent  { color: #4f46e5; font-weight: 700; }
+.dark  .db-accent { color: #a5b4fc; font-weight: 700; }
+
+/* ── Links ───────────────────────────────────────────────────────────────────── */
+:root .db-link    { color: #4f46e5; }
+:root .db-link:hover { color: #3730a3; }
+.dark  .db-link   { color: #a5b4fc; }
+.dark  .db-link:hover { color: #c7d2fe; }
+:root .db-link-bg { background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); }
+.dark  .db-link-bg { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); }
+
+/* ── Platform icon colors (adapt for light mode) ─────────────────────────────── */
+:root .db-icon-tiktok { color: #1a1a1a; }
+.dark  .db-icon-tiktok { color: #e2e8f0; }
+:root .db-icon-x      { color: #1a1a1a; }
+.dark  .db-icon-x     { color: #e2e8f0; }
+:root .db-icon-muted  { color: #6b7280; }
+.dark  .db-icon-muted { color: #6b7280; }
+
+/* ── Live activity banner ────────────────────────────────────────────────────── */
+:root .db-activity-banner {
+  background: linear-gradient(to left, rgba(249,115,22,0.08), rgba(239,68,68,0.06));
+  border: 1px solid rgba(249,115,22,0.2);
+}
+.dark .db-activity-banner {
+  background: linear-gradient(to left, rgba(249,115,22,0.1), rgba(239,68,68,0.1));
+  border: 1px solid rgba(249,115,22,0.2);
+}
+:root .db-muted-orange { color: #b45309; }
+.dark  .db-muted-orange { color: rgba(251,146,60,0.75); }
+
+/* Live badge */
+:root .db-live-badge { background: rgba(34,197,94,0.15); color: #15803d; border: 1px solid rgba(34,197,94,0.3); }
+.dark  .db-live-badge { background: rgba(34,197,94,0.2);  color: #4ade80;  border: 1px solid rgba(34,197,94,0.3); }
+
+/* ── Hero card ───────────────────────────────────────────────────────────────── */
+:root .db-hero {
+  background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(59,130,246,0.08) 50%, rgba(99,102,241,0.12) 100%);
+  border: 1px solid rgba(99,102,241,0.2);
+}
+.dark .db-hero {
+  background: linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(59,130,246,0.15) 50%, rgba(99,102,241,0.25) 100%);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+:root .db-hero-title { color: #1e1b4b; }
+.dark  .db-hero-title { color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+
+/* ── Trust badge panels ──────────────────────────────────────────────────────── */
+:root .db-badge-green  { background: rgba(34,197,94,0.07);  border: 1px solid rgba(34,197,94,0.2); }
+.dark  .db-badge-green { background: rgba(34,197,94,0.1);   border: 1px solid rgba(34,197,94,0.2); }
+:root .db-badge-blue   { background: rgba(59,130,246,0.07); border: 1px solid rgba(59,130,246,0.2); }
+.dark  .db-badge-blue  { background: rgba(59,130,246,0.1);  border: 1px solid rgba(59,130,246,0.2); }
+:root .db-badge-purple { background: rgba(168,85,247,0.07); border: 1px solid rgba(168,85,247,0.2); }
+.dark  .db-badge-purple{ background: rgba(168,85,247,0.1);  border: 1px solid rgba(168,85,247,0.2); }
+:root .db-badge-emerald{ background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2); }
+.dark  .db-badge-emerald{ background: rgba(16,185,129,0.08);border: 1px solid rgba(16,185,129,0.2); }
+
+:root .db-muted-green  { color: #166534; }
+.dark  .db-muted-green { color: rgba(74,222,128,0.7); }
+:root .db-muted-blue   { color: #1e40af; }
+.dark  .db-muted-blue  { color: rgba(96,165,250,0.7); }
+:root .db-muted-purple { color: #6b21a8; }
+.dark  .db-muted-purple{ color: rgba(192,132,252,0.7); }
+:root .db-emerald-text { color: #065f46; }
+.dark  .db-emerald-text{ color: #6ee7b7; }
+
+/* ── Stats cards ─────────────────────────────────────────────────────────────── */
+:root .db-stat-card {
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(0,0,0,0.1);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.dark .db-stat-card {
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+:root .db-stat-card-gradient {
+  backdrop-filter: blur(12px);
+  background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(59,130,246,0.08) 100%);
+  border: 1px solid rgba(99,102,241,0.25);
+  box-shadow: 0 2px 16px rgba(99,102,241,0.08);
+}
+.dark .db-stat-card-gradient {
+  backdrop-filter: blur(12px);
+  background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(59,130,246,0.15) 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+:root .db-stat-label   { color: #374151; }
+.dark  .db-stat-label  { color: #94a3b8; }
+:root .db-stat-number  { color: #111827; }
+.dark  .db-stat-number { color: #f1f5f9; }
+:root .db-stat-number-green { color: #15803d; }
+.dark  .db-stat-number-green{ color: #4ade80; }
+:root .db-balance-number { color: #1e1b4b; font-weight: 900; }
+.dark  .db-balance-number { color: #ffffff; font-weight: 900; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+:root .db-skeleton { background: rgba(0,0,0,0.06); }
+.dark  .db-skeleton { background: rgba(255,255,255,0.08); }
+
+/* ── Promo card (Instagram) ──────────────────────────────────────────────────── */
+:root .db-promo-card {
+  border: 1px solid rgba(236,72,153,0.25);
+  background: linear-gradient(to left, rgba(236,72,153,0.06), rgba(168,85,247,0.06));
+}
+:root .db-promo-card:hover {
+  background: linear-gradient(to left, rgba(236,72,153,0.1), rgba(168,85,247,0.1));
+}
+.dark .db-promo-card {
+  border: 1px solid rgba(236,72,153,0.3);
+  background: linear-gradient(to left, rgba(236,72,153,0.1), rgba(168,85,247,0.1));
+}
+.dark .db-promo-card:hover {
+  background: linear-gradient(to left, rgba(236,72,153,0.15), rgba(168,85,247,0.15));
+}
+:root .db-promo-icon-bg { background: #f8f0ff; }
+.dark  .db-promo-icon-bg { background: #0f0f1a; }
+
+/* ── Popular services section ────────────────────────────────────────────────── */
+:root .db-hot-badge { background: rgba(239,68,68,0.1); color: #b91c1c; border: 1px solid rgba(239,68,68,0.25); }
+.dark  .db-hot-badge { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+:root .db-service-row {
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+:root .db-service-row:hover {
+  background: rgba(255,255,255,0.95);
+  border-color: rgba(99,102,241,0.25);
+  box-shadow: 0 2px 12px rgba(99,102,241,0.08);
+}
+.dark .db-service-row {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.dark .db-service-row:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(99,102,241,0.3);
+}
+
+:root .db-rank-badge {
+  background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(59,130,246,0.12));
+  border: 1px solid rgba(99,102,241,0.2);
+  color: #4f46e5;
+}
+.dark .db-rank-badge {
+  background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(59,130,246,0.2));
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #a5b4fc;
+}
+
+:root .db-featured-badge { background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.2); }
+.dark  .db-featured-badge { background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2); }
+:root .db-featured-text   { color: #b45309; }
+.dark  .db-featured-text  { color: #fb923c; }
+
+:root .db-empty-card {
+  background: rgba(255,255,255,0.6);
+  border-color: rgba(0,0,0,0.08);
+  color: var(--theme-text-muted);
+}
+.dark .db-empty-card {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.08);
+}
+
+/* ── Platform cards ──────────────────────────────────────────────────────────── */
+:root .db-platform-card {
+  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,0.8);
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+:root .db-platform-card:hover {
+  background: rgba(255,255,255,0.95);
+  border-color: rgba(99,102,241,0.2);
+  box-shadow: 0 4px 16px rgba(99,102,241,0.1);
+}
+.dark .db-platform-card {
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.dark .db-platform-card:hover {
+  background: rgba(255,255,255,0.09);
+}
+
+/* ── Recent orders ───────────────────────────────────────────────────────────── */
+:root .db-order-row {
+  background: rgba(255,255,255,0.8);
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.dark .db-order-row {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
 /* ─── Mobile — ensure touch targets are big enough ──────────────────────────── */
 @media (max-width: 640px) {
   button, a[role="button"] { min-height: 44px; }
