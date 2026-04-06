@@ -12,6 +12,7 @@
     }
   },
   "rewrites": [
+    { "source": "/google6c97654db5995a94.html", "destination": "/api/google6c97654db5995a94" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
