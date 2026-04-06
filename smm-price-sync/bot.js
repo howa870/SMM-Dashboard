@@ -243,7 +243,7 @@ async function handleCallbackQuery(cb, token, chatId, deps) {
   }
 }
 
-// ─── Long Polling ────────────────────────────────────
+// ─── Start Bot (Notification-only mode — no polling, webhook handles messages) ──
 
 async function startBot(token, chatId, deps = {}) {
   if (!token || !chatId) {
@@ -255,50 +255,11 @@ async function startBot(token, chatId, deps = {}) {
   await sendMsg(token, chatId, [
     `🤖 <b>بوت Boost Iraq جاهز!</b>`,
     ``,
-    `استخدم الأزرار أدناه للتحكم بالأسعار`,
+    `✅ نظام مراقبة الأسعار يعمل — سيتم إشعارك عند ارتفاع الأسعار`,
   ].join("\n"), { reply_markup: MAIN_KEYBOARD }).catch(() => {});
 
-  console.log("[Bot] ✅ البوت يعمل — الأزرار الثابتة مفعّلة");
-
-  let offset = 0;
-  const apiBase = `${TELEGRAM_API}/bot${token}`;
-
-  async function poll() {
-    try {
-      const { data } = await axios.get(`${apiBase}/getUpdates`, {
-        params: {
-          offset,
-          timeout: 25,
-          allowed_updates: ["message", "callback_query"],
-        },
-        timeout: 30000,
-      });
-
-      for (const update of (data.result || [])) {
-        offset = update.update_id + 1;
-
-        if (update.message) {
-          await handleMessage(update.message, token, chatId, deps).catch((err) =>
-            console.error(`[Bot] خطأ في الرسالة: ${err.message}`)
-          );
-        }
-
-        if (update.callback_query) {
-          await handleCallbackQuery(update.callback_query, token, chatId, deps).catch((err) =>
-            console.error(`[Bot] خطأ في الزر: ${err.message}`)
-          );
-        }
-      }
-    } catch (err) {
-      if (!err.message.includes("timeout")) {
-        console.error(`[Bot] خطأ polling: ${err.message}`);
-      }
-    }
-
-    setTimeout(poll, 1000);
-  }
-
-  poll();
+  console.log("[Bot] ✅ البوت يعمل — وضع الإشعارات (webhook يتولى الاستقبال)");
+  // Note: No polling here — the Express API webhook handles all incoming messages
 }
 
 module.exports = { startBot };
