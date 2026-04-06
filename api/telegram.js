@@ -104,17 +104,7 @@ const MAIN_KB = {
 
 const BACK_KB = { inline_keyboard: [[{ text: "🔙 القائمة الرئيسية", callback_data: "main" }]] };
 
-const REPLY_KB = {
-  keyboard: [
-    [{ text: "📊 الإحصائيات" }, { text: "💰 الأرباح" }],
-    [{ text: "📥 الطلبات المعلقة" }, { text: "👥 المستخدمين" }],
-    [{ text: "📈 نسبة الربح" }, { text: "⚙️ أرقام الدفع" }],
-    [{ text: "➕ إضافة رصيد" }, { text: "📢 إشعار عام" }],
-    [{ text: "🔄 تحديث" }],
-  ],
-  resize_keyboard: true,
-  persistent: true,
-};
+const REMOVE_KB = { remove_keyboard: true };
 
 // ─── Markup Picker Keyboard ───────────────────────────────────────────────────
 const MARKUP_KB = {
@@ -233,8 +223,12 @@ async function showMain(chatId, msgId = null) {
   if (msgId) {
     await edit(chatId, msgId, text, MAIN_KB);
   } else {
-    // إرسال الكيبورد الثابت أولاً ثم القائمة الـ inline
-    await send(chatId, "⌨️ جاهز!", REPLY_KB);
+    // إزالة أي كيبورد ثابت قديم أولاً
+    await tg("sendMessage", {
+      chat_id:      chatId,
+      text:         "‎",
+      reply_markup: REMOVE_KB,
+    }).catch(() => {});
     await send(chatId, text, MAIN_KB);
   }
 }

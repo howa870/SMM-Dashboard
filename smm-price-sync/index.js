@@ -26,6 +26,7 @@ const { notifyStartup }                                  = require("./telegram")
 const { isSupabaseConfigured, updateAllPricesWithNewMarkup, getMarkupFromSupabase } = require("./supabase");
 const { startBot }                                       = require("./bot");
 const { getCurrentMarkup, setCurrentMarkup }             = require("./config");
+const { syncOrderStatuses }                              = require("./order-sync");
 
 // ─── التحقق من المتغيرات الأساسية ───────────────────
 
@@ -76,6 +77,7 @@ async function initialRun() {
   try {
     await syncMarkupFromSupabase();
     await checkAndUpdatePrices(config);
+    await syncOrderStatuses(config);
 
     // إشعار Telegram بعد الفحص الأول (إذا كان مفعّلاً)
     if (config.telegramToken && config.telegramChatId) {
@@ -99,10 +101,11 @@ const job = cron.schedule(
   "*/5 * * * *",
   async () => {
     await syncMarkupFromSupabase();
-    checkAndUpdatePrices(config).catch((err) => {
-      console.error(
-        `[Main] ❌ خطأ في الفحص الدوري: ${err.message}\n       النظام يستمر...`
-      );
+    await checkAndUpdatePrices(config).catch((err) => {
+      console.error(`[Main] ❌ خطأ في فحص الأسعار: ${err.message}`);
+    });
+    await syncOrderStatuses(config).catch((err) => {
+      console.error(`[Main] ❌ خطأ في فحص الطلبات: ${err.message}`);
     });
   },
   {
