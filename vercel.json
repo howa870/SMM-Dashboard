@@ -28,6 +28,7 @@
   },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/googleaBDOAiHEj8b1F6sKz1fI09AuuWwSC3P3kmTj64Wxlfc.html", "destination": "/api/google-verify" },
     { "source": "/((?!api(?:/|$)).*)", "destination": "/index.html" }
   ],
   "headers": [
