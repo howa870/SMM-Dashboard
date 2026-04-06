@@ -33,42 +33,68 @@ function getPlatformIcon(name: string) {
   return <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">{name[0]}</div>;
 }
 
-const LIVE_ACTIVITY = [
-  { icon: "🔥", text: "شخص من بغداد اشترى 1000 متابع انستغرام", time: "قبل دقيقتين" },
-  { icon: "⭐", text: "طلب جديد: 500 لايك تيك توك — تم بنجاح!", time: "قبل 5 دقائق" },
-  { icon: "🔥", text: "شخص من البصرة اشترى 5000 مشاهدة يوتيوب", time: "قبل 7 دقائق" },
-  { icon: "⭐", text: "طلب متابعين انستغرام 2000 — تسليم فوري", time: "قبل 10 دقائق" },
-  { icon: "🔥", text: "شخص من الموصل اشترى متابعين تيك توك", time: "قبل 12 دقيقة" },
-  { icon: "⭐", text: "طلب جديد: 10,000 مشاهدة يوتيوب — نجح!", time: "قبل 15 دقيقة" },
-  { icon: "🔥", text: "شخص من أربيل اشترى لايكات انستغرام", time: "قبل 18 دقيقة" },
+// ─── بيانات النشاط المباشر ────────────────────────────────────────────────────
+const CITIES   = ["بغداد","البصرة","الموصل","أربيل","النجف","كربلاء","الناصرية","الديوانية","الكوت","السماوة","بعقوبة","الرمادي","تكريت","كركوك","الحلة","الفلوجة","عمارة","الزبير"];
+const SERVICES = [
+  { label: "متابعين انستغرام",    icon: "📸", qty: [500,1000,2000,5000,10000] },
+  { label: "لايكات انستغرام",      icon: "❤️", qty: [200,500,1000,3000] },
+  { label: "مشاهدات يوتيوب",      icon: "▶️", qty: [1000,5000,10000,50000] },
+  { label: "متابعين تيك توك",     icon: "🎵", qty: [500,1000,3000,5000] },
+  { label: "لايكات تيك توك",      icon: "💜", qty: [300,500,1000,2000] },
+  { label: "متابعين تيليغرام",    icon: "✈️", qty: [200,500,1000,5000] },
+  { label: "أعضاء قناة تيليغرام", icon: "📢", qty: [100,500,1000,3000] },
+  { label: "مشاهدات تيليغرام",    icon: "👁️", qty: [1000,5000,10000] },
+  { label: "متابعين فيسبوك",      icon: "👍", qty: [500,1000,2000] },
+  { label: "لايكات تويتر",        icon: "🐦", qty: [200,500,1000] },
+  { label: "متابعين سناب شات",    icon: "👻", qty: [300,500,1000] },
+  { label: "تشغيلات سبوتيفاي",    icon: "🎧", qty: [1000,5000,10000] },
 ];
+const PHRASES = ["تم التسليم ✅","جاري التنفيذ ⚡","اكتمل الطلب 🎉","تسليم فوري ✅","تم بنجاح 🚀"];
+
+function rnd<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function generateActivity() {
+  const svc  = rnd(SERVICES);
+  const city = rnd(CITIES);
+  const qty  = rnd(svc.qty);
+  const mins = Math.floor(Math.random() * 8) + 1;
+  const timeLabel = mins === 1 ? "قبل دقيقة" : mins < 3 ? `قبل ${mins} دقيقتين` : `قبل ${mins} دقائق`;
+  const useCity = Math.random() > 0.4;
+  const text = useCity
+    ? `شخص من ${city} اشترى ${qty.toLocaleString()} ${svc.label}`
+    : `طلب ${qty.toLocaleString()} ${svc.label} — ${rnd(PHRASES)}`;
+  return { icon: svc.icon, text, time: timeLabel };
+}
 
 function LiveActivityBanner() {
-  const [current, setCurrent] = useState(0);
+  const [item,    setItem]    = useState(() => generateActivity());
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const next = () => {
       setVisible(false);
-      setTimeout(() => {
-        setCurrent(prev => (prev + 1) % LIVE_ACTIVITY.length);
-        setVisible(true);
-      }, 400);
-    }, 4000);
-    return () => clearInterval(interval);
+      setTimeout(() => { setItem(generateActivity()); setVisible(true); }, 450);
+    };
+    // interval عشوائي بين 3.5 و 6 ثوانٍ
+    let timeout: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      const delay = 3500 + Math.random() * 2500;
+      timeout = setTimeout(() => { next(); schedule(); }, delay);
+    };
+    schedule();
+    return () => clearTimeout(timeout);
   }, []);
 
-  const item = LIVE_ACTIVITY[current];
   return (
     <div
-      className={`db-activity-banner flex items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-400 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"}`}
+      className={`db-activity-banner flex items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-500 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
     >
       <span className="text-xl shrink-0">{item.icon}</span>
       <div className="min-w-0">
         <p className="db-text text-sm font-medium truncate">{item.text}</p>
         <p className="db-muted-orange text-xs">{item.time}</p>
       </div>
-      <span className="shrink-0 text-xs db-live-badge px-2 py-0.5 rounded-full">مباشر</span>
+      <span className="shrink-0 text-xs db-live-badge px-2 py-0.5 rounded-full animate-pulse">مباشر</span>
     </div>
   );
 }
