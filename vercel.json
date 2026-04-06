@@ -10,10 +10,17 @@
       "VITE_API_URL": ""
     }
   },
+  "crons": [
+    {
+      "path":     "/api/sync-orders",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "functions": {
     "api/telegram.js":      { "maxDuration": 30 },
     "api/payment.js":       { "maxDuration": 15 },
     "api/order.js":         { "maxDuration": 15 },
+    "api/sync-orders.js":   { "maxDuration": 60 },
     "api/smm/services.js":  { "maxDuration": 15 },
     "api/auth/jwt-sync.js": { "maxDuration": 10 },
     "api/auth/login.js":    { "maxDuration": 10 },
