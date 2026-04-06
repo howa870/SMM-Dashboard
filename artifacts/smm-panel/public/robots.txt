@@ -2,7 +2,7 @@ User-agent: *
 Allow: /
 
 # Sitemaps
-Sitemap: https://boostiraq.com/sitemap.xml
+Sitemap: https://boost-iraq2.vercel.app/sitemap.xml
 
 # Block admin and API paths
 Disallow: /#/admin
