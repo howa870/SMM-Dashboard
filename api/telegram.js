@@ -3,20 +3,34 @@
  *  Boost Iraq — Admin Telegram Bot  (Vercel Serverless)
  * ═══════════════════════════════════════════════════════════════
  *
- *  تسجيل Webhook (مرة واحدة فقط):
- *  curl "https://api.telegram.org/bot{TOKEN}/setWebhook?url=https://YOUR_DOMAIN/api/telegram"
+ *  ⚠️  IMPORTANT: Webhook URL MUST be your PRODUCTION Vercel URL:
+ *     https://your-project.vercel.app/api/telegram
  *
- *  الأوامر النصية:
- *    /start                        — القائمة الرئيسية
- *    /pending                      — الطلبات المعلقة
- *    /approve {payment_id}         — قبول طلب
- *    /reject  {payment_id}         — رفض طلب
- *    /balance {user_id}            — رصيد مستخدم
- *    /addbalance {user_id} {amount} — إضافة رصيد
- *    /deduct  {user_id} {amount}   — خصم رصيد
- *    /setnumber zain|asiacell|qicard {number} — تعديل أرقام الدفع
+ *  NEVER use preview URLs (with hash like ek9v5josz) — Vercel
+ *  adds Deployment Protection to previews → Telegram gets 401!
+ *
+ *  Set webhook (one time):
+ *  curl "https://api.telegram.org/bot{TOKEN}/setWebhook?url=https://YOUR_PRODUCTION_DOMAIN/api/telegram"
+ *
+ *  Commands:
+ *    /start                         — Main menu
+ *    /pending                       — Pending payments
+ *    /approve {payment_id}          — Approve payment
+ *    /reject  {payment_id}          — Reject payment
+ *    /balance {user_id}             — Check balance
+ *    /addbalance {user_id} {amount} — Add balance
+ *    /deduct  {user_id} {amount}    — Deduct balance
+ *    /setnumber zain|asiacell|qicard {number} — Edit payment numbers
  * ═══════════════════════════════════════════════════════════════
  */
+
+// ─── Vercel config: enable body parser, allow 30s for async work ──────────────
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+  maxDuration: 30,
+};
 
 import {
   setCors, sbSelect, sbUpdate, sbInsert, sbCount,
@@ -648,26 +662,27 @@ async function handleMessage(msg) {
 
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
+  // Always set CORS headers first (Telegram doesn't need them but browsers do)
   setCors(res);
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  // GET — تحقق من الـ webhook
+  // GET — health check / webhook info
   if (req.method === "GET") {
-    return res.json({
-      ok:  true,
-      bot: "Boost Iraq Admin Bot 🚀",
-      admins: ADMIN_IDS,
+    return res.status(200).json({
+      ok:      true,
+      bot:     "Boost Iraq Admin Bot 🚀",
+      admins:  ADMIN_IDS,
       supabase: !!SUPABASE_URL,
-      token: !!TELEGRAM_TOKEN,
+      token:   !!TELEGRAM_TOKEN,
     });
   }
 
-  if (req.method !== "POST") return res.status(405).end();
+  if (req.method !== "POST") return res.status(405).json({ ok: false });
 
-  // أرسل 200 فوراً — Telegram يعيد المحاولة إن لم يستلم في 60 ثانية
-  res.status(200).json({ ok: true });
-
+  // ── CRITICAL: In Vercel serverless, the function is killed once res.end()
+  //    is called. We must complete all async work BEFORE responding.
+  //    Telegram allows up to 60s — our maxDuration is 30s, plenty of time.
   const update = req.body || {};
 
   try {
@@ -678,5 +693,8 @@ export default async function handler(req, res) {
     }
   } catch (err) {
     console.error("[TG] Unhandled error:", err.message);
+    // Still return 200 — Telegram must not retry
   }
+
+  return res.status(200).json({ ok: true });
 }
