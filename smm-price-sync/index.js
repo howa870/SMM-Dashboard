@@ -23,9 +23,9 @@ const cron = require("node-cron");
 
 const { checkAndUpdatePrices, getStats, getSavedPrices } = require("./updater");
 const { notifyStartup }                                  = require("./telegram");
-const { isSupabaseConfigured, updateAllPricesWithNewMarkup } = require("./supabase");
+const { isSupabaseConfigured, updateAllPricesWithNewMarkup, getMarkupFromSupabase } = require("./supabase");
 const { startBot }                                       = require("./bot");
-const { getCurrentMarkup }                               = require("./config");
+const { getCurrentMarkup, setCurrentMarkup }             = require("./config");
 
 // ─── التحقق من المتغيرات الأساسية ───────────────────
 
@@ -58,8 +58,23 @@ console.log("");
 
 // ─── تشغيل الفحص الأول فور البدء ────────────────────
 
+// ─── مزامنة نسبة الربح من Supabase ───────────────────
+async function syncMarkupFromSupabase() {
+  try {
+    const sbMarkup = await getMarkupFromSupabase();
+    if (sbMarkup && sbMarkup !== getCurrentMarkup()) {
+      const pct = ((sbMarkup - 1) * 100).toFixed(0);
+      console.log(`[Sync] 🔄 نسبة الربح تغيّرت من Supabase: ${pct}%`);
+      setCurrentMarkup(sbMarkup);
+    }
+  } catch (e) {
+    console.warn(`[Sync] ⚠️  تعذّر قراءة نسبة الربح من Supabase: ${e.message}`);
+  }
+}
+
 async function initialRun() {
   try {
+    await syncMarkupFromSupabase();
     await checkAndUpdatePrices(config);
 
     // إشعار Telegram بعد الفحص الأول (إذا كان مفعّلاً)
@@ -82,7 +97,8 @@ initialRun();
 
 const job = cron.schedule(
   "*/5 * * * *",
-  () => {
+  async () => {
+    await syncMarkupFromSupabase();
     checkAndUpdatePrices(config).catch((err) => {
       console.error(
         `[Main] ❌ خطأ في الفحص الدوري: ${err.message}\n       النظام يستمر...`

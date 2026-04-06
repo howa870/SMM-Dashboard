@@ -171,6 +171,27 @@ async function updateAllPricesWithNewMarkup(newMarkup) {
 }
 
 /**
+ * قراءة نسبة الربح من Supabase (payment_settings.profit_markup)
+ * يُستخدم لمزامنة الإعداد بين البوت على Vercel و smm-price-sync
+ */
+async function getMarkupFromSupabase() {
+  const client = getClient();
+  if (!client) return null;
+  try {
+    const { data, error } = await client
+      .from("payment_settings")
+      .select("value")
+      .eq("key", "profit_markup")
+      .single();
+    if (error || !data) return null;
+    const m = parseFloat(data.value);
+    return isNaN(m) ? null : m;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * فحص ما إذا كان Supabase مُعدّاً
  */
 function isSupabaseConfigured() {
@@ -180,6 +201,7 @@ function isSupabaseConfigured() {
 module.exports = {
   updateServicePriceInDb,
   updateAllPricesWithNewMarkup,
+  getMarkupFromSupabase,
   calcPriceIQD,
   isSupabaseConfigured,
 };

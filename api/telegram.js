@@ -34,7 +34,7 @@ export const config = {
 
 import {
   setCors, sbSelect, sbUpdate, sbInsert, sbCount,
-  TELEGRAM_TOKEN, SERVICE_KEY, SUPABASE_URL,
+  TELEGRAM_TOKEN, SERVICE_KEY, SUPABASE_URL, followizCall,
 } from "./_utils.js";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -83,18 +83,22 @@ const editKb = (chatId, msgId, kb) =>
 const MAIN_KB = {
   inline_keyboard: [
     [
-      { text: "📊 الإحصائيات",      callback_data: "stats"     },
-      { text: "💰 الأرباح",         callback_data: "revenue"   },
+      { text: "📊 الإحصائيات",      callback_data: "stats"        },
+      { text: "💰 الأرباح",         callback_data: "revenue"      },
     ],
     [
-      { text: "📥 الطلبات المعلقة", callback_data: "payments"  },
-      { text: "👥 المستخدمين",      callback_data: "users"     },
+      { text: "📥 الطلبات المعلقة", callback_data: "payments"     },
+      { text: "👥 المستخدمين",      callback_data: "users"        },
     ],
     [
-      { text: "⚙️ أرقام الدفع",     callback_data: "numbers"   },
-      { text: "➕ إضافة رصيد",      callback_data: "add_help"  },
+      { text: "⚙️ أرقام الدفع",     callback_data: "numbers"      },
+      { text: "📈 نسبة الربح",      callback_data: "markup_view"  },
     ],
-    [{ text: "🔄 تحديث",            callback_data: "refresh"   }],
+    [
+      { text: "➕ إضافة رصيد",      callback_data: "add_help"     },
+      { text: "📢 إشعار عام",       callback_data: "broadcast"    },
+    ],
+    [{ text: "🔄 تحديث",            callback_data: "refresh"      }],
   ],
 };
 
@@ -104,11 +108,35 @@ const REPLY_KB = {
   keyboard: [
     [{ text: "📊 الإحصائيات" }, { text: "💰 الأرباح" }],
     [{ text: "📥 الطلبات المعلقة" }, { text: "👥 المستخدمين" }],
-    [{ text: "⚙️ أرقام الدفع" }, { text: "➕ إضافة رصيد" }],
+    [{ text: "📈 نسبة الربح" }, { text: "⚙️ أرقام الدفع" }],
+    [{ text: "➕ إضافة رصيد" }, { text: "📢 إشعار عام" }],
     [{ text: "🔄 تحديث" }],
   ],
   resize_keyboard: true,
   persistent: true,
+};
+
+// ─── Markup Picker Keyboard ───────────────────────────────────────────────────
+const MARKUP_KB = {
+  inline_keyboard: [
+    [
+      { text: "20%",  callback_data: "mk_20"  },
+      { text: "30%",  callback_data: "mk_30"  },
+      { text: "40%",  callback_data: "mk_40"  },
+    ],
+    [
+      { text: "50%",  callback_data: "mk_50"  },
+      { text: "60%",  callback_data: "mk_60"  },
+      { text: "75%",  callback_data: "mk_75"  },
+    ],
+    [
+      { text: "100%", callback_data: "mk_100" },
+      { text: "150%", callback_data: "mk_150" },
+      { text: "200%", callback_data: "mk_200" },
+    ],
+    [{ text: "✏️ رقم مخصص — أرسل: /setmarkup 45", callback_data: "mk_custom_help" }],
+    [{ text: "🔙 رجوع", callback_data: "markup_view" }],
+  ],
 };
 
 const NUMBERS_KB = {
@@ -348,6 +376,157 @@ async function showNumbers(chatId, msgId = null) {
   else        await send(chatId, text, BACK_KB);
 }
 
+// ─── Profit Markup ────────────────────────────────────────────────────────────
+
+async function getCurrentMarkup() {
+  try {
+    const rows = await sbSelect("payment_settings", "key=eq.profit_markup");
+    if (rows?.length) return parseFloat(rows[0].value) || 1.5;
+    return 1.5;
+  } catch { return 1.5; }
+}
+
+async function saveMarkup(m) {
+  try {
+    await sbUpdate("payment_settings", "key=eq.profit_markup", { value: String(m) });
+  } catch {
+    try {
+      await sbInsert("payment_settings", { key: "profit_markup", value: String(m) });
+    } catch (e) { console.error("[TG] saveMarkup:", e.message); }
+  }
+}
+
+async function showMarkup(chatId, msgId = null) {
+  const m   = await getCurrentMarkup();
+  const pct = ((m - 1) * 100).toFixed(0);
+  const kb  = { inline_keyboard: [
+    [{ text: "⚙️ تغيير نسبة الربح", callback_data: "markup_picker" }],
+    [{ text: "🔄 تحديث",            callback_data: "markup_view"   }],
+    [{ text: "🔙 رجوع",             callback_data: "main"          }],
+  ]};
+  const text = [
+    `📈 <b>نسبة الربح الحالية: ${pct}%</b>`,
+    ``,
+    `مثال على الأسعار:`,
+    `  $0.10 → <code>${Math.ceil(0.10 * m * 1300).toLocaleString()} IQD</code>`,
+    `  $0.50 → <code>${Math.ceil(0.50 * m * 1300).toLocaleString()} IQD</code>`,
+    `  $1.00 → <code>${Math.ceil(1.00 * m * 1300).toLocaleString()} IQD</code>`,
+    `  $5.00 → <code>${Math.ceil(5.00 * m * 1300).toLocaleString()} IQD</code>`,
+  ].join("\n");
+  if (msgId) await edit(chatId, msgId, text, kb);
+  else        await send(chatId, text, kb);
+}
+
+async function showMarkupPicker(chatId, msgId = null) {
+  const m   = await getCurrentMarkup();
+  const pct = ((m - 1) * 100).toFixed(0);
+  const text = [
+    `⚙️ <b>تغيير نسبة الربح</b>`,
+    ``,
+    `الحالية: <b>${pct}%</b>`,
+    `اختر النسبة الجديدة — سيتم تحديث جميع الأسعار فوراً:`,
+  ].join("\n");
+  if (msgId) await edit(chatId, msgId, text, MARKUP_KB);
+  else        await send(chatId, text, MARKUP_KB);
+}
+
+async function applyMarkupBot(pct, chatId) {
+  const newMarkup = Math.round((1 + pct / 100) * 1000) / 1000;
+  const oldMarkup = await getCurrentMarkup();
+  const oldPct    = ((oldMarkup - 1) * 100).toFixed(0);
+
+  await send(chatId, `⏳ جاري تحديث الأسعار بنسبة <b>${pct}%</b>...\nيرجى الانتظار`);
+
+  // حفظ النسبة الجديدة في Supabase
+  await saveMarkup(newMarkup);
+
+  // تحديث أسعار الخدمات عبر Followiz API
+  let updated = 0, failed = 0;
+  try {
+    const services = await followizCall({ action: "services" });
+    if (Array.isArray(services) && services.length > 0) {
+      const BATCH = 20;
+      for (let i = 0; i < services.length; i += BATCH) {
+        const batch = services.slice(i, i + BATCH);
+        await Promise.all(batch.map(async (svc) => {
+          try {
+            const newPrice = Math.ceil(Number(svc.rate) * newMarkup * 1300);
+            await sbUpdate("services",
+              `provider_service_id=eq.${svc.service}&provider=eq.followiz`,
+              { price: newPrice }
+            );
+            updated++;
+          } catch { failed++; }
+        }));
+      }
+    }
+  } catch (e) {
+    console.error("[TG] markup Followiz error:", e.message);
+  }
+
+  const arrow = pct > parseFloat(oldPct) ? "📈" : "📉";
+  await send(chatId, [
+    `✅ <b>تم تحديث الأسعار!</b>`,
+    ``,
+    `${arrow} نسبة الربح: <code>${oldPct}%</code> → <code>${pct}%</code>`,
+    updated > 0 ? `📦 خدمات مُحدّثة: <b>${updated}</b>` : `⚠️ لم يتم تحديث خدمات (تحقق من FOLLOWIZ_KEY)`,
+    failed  > 0 ? `⚠️ فشل: <b>${failed}</b>` : "",
+    ``,
+    `مثال الأسعار الجديدة:`,
+    `  $0.50 → <code>${Math.ceil(0.5 * newMarkup * 1300).toLocaleString()} IQD</code>`,
+    `  $1.00 → <code>${Math.ceil(1.0 * newMarkup * 1300).toLocaleString()} IQD</code>`,
+    `  $5.00 → <code>${Math.ceil(5.0 * newMarkup * 1300).toLocaleString()} IQD</code>`,
+  ].filter(l => l !== "").join("\n"), BACK_KB);
+}
+
+// ─── Broadcast Notification ───────────────────────────────────────────────────
+
+async function showBroadcast(chatId, msgId = null) {
+  const text = [
+    `📢 <b>إشعار عام للمستخدمين</b>`,
+    ``,
+    `يمكنك إرسال إشعار داخلي لجميع المستخدمين.`,
+    ``,
+    `أرسل الأمر بالشكل التالي:`,
+    `<code>/broadcast العنوان | نص الرسالة</code>`,
+    ``,
+    `مثال:`,
+    `<code>/broadcast تحديث الأسعار | تم تحديث أسعار جميع الخدمات بخصم 10%</code>`,
+  ].join("\n");
+  if (msgId) await edit(chatId, msgId, text, BACK_KB);
+  else        await send(chatId, text, BACK_KB);
+}
+
+async function doBroadcast(title, message, chatId) {
+  await send(chatId, `⏳ جاري إرسال الإشعار لجميع المستخدمين...`);
+  try {
+    const users = await sbSelect("profiles", "id=not.is.null&select=id");
+    let sent = 0, failed = 0;
+    const BATCH = 30;
+    for (let i = 0; i < (users || []).length; i += BATCH) {
+      const batch = users.slice(i, i + BATCH);
+      await Promise.all(batch.map(async (u) => {
+        try {
+          await sbInsert("notifications", {
+            user_id: u.id, title, message, is_read: false,
+          });
+          sent++;
+        } catch { failed++; }
+      }));
+    }
+    await send(chatId, [
+      `✅ <b>تم الإرسال!</b>`,
+      ``,
+      `📢 العنوان: <b>${title}</b>`,
+      `📝 الرسالة: ${message}`,
+      ``,
+      `👥 أُرسل لـ <b>${sent}</b> مستخدم${failed > 0 ? `\n⚠️ فشل: ${failed}` : ""}`,
+    ].join("\n"), BACK_KB);
+  } catch (e) {
+    await send(chatId, `❌ فشل الإرسال: ${e.message}`, BACK_KB);
+  }
+}
+
 // ─── Action: Approve Payment ──────────────────────────────────────────────────
 async function doApprove(paymentId, chatId, msgId, adminName) {
   const rows = await sbSelect("payments", `id=eq.${paymentId}&select=*`).catch(() => []);
@@ -493,15 +672,35 @@ async function handleCallback(cb) {
     return;
   }
 
+  // ── نسبة الربح — mk_20, mk_50 ... ──────────────────────────────────────────
+  if (data.startsWith("mk_")) {
+    const pct = parseInt(data.replace("mk_", ""), 10);
+    if (!isNaN(pct) && pct > 0 && pct <= 500) {
+      await tg("answerCallbackQuery", { callback_query_id: callbackId, text: `⏳ جاري ضبط ${pct}%...` });
+      await applyMarkupBot(pct, chatId);
+      return;
+    }
+  }
+
   // ── Menu screens ─────────────────────────────────────────────────────────
   switch (data) {
-    case "main":     await showMain(chatId, msgId);    break;
-    case "stats":    await showStats(chatId, msgId);   break;
-    case "revenue":  await showRevenue(chatId, msgId); break;
-    case "payments": await showPending(chatId, msgId); break;
-    case "users":    await showUsers(chatId, msgId);   break;
-    case "numbers":  await showNumbers(chatId, msgId); break;
-    case "refresh":  await showStats(chatId, msgId);   break;
+    case "main":          await showMain(chatId, msgId);         break;
+    case "stats":         await showStats(chatId, msgId);        break;
+    case "revenue":       await showRevenue(chatId, msgId);      break;
+    case "payments":      await showPending(chatId, msgId);      break;
+    case "users":         await showUsers(chatId, msgId);        break;
+    case "numbers":       await showNumbers(chatId, msgId);      break;
+    case "refresh":       await showStats(chatId, msgId);        break;
+    case "markup_view":   await showMarkup(chatId, msgId);       break;
+    case "markup_picker": await showMarkupPicker(chatId, msgId); break;
+    case "broadcast":     await showBroadcast(chatId, msgId);    break;
+
+    case "mk_custom_help":
+      await edit(chatId, msgId,
+        "✏️ <b>رقم مخصص</b>\n\nأرسل الأمر بالشكل التالي:\n<code>/setmarkup 45</code>\n\nمثال: 45 = نسبة ربح 45%",
+        BACK_KB
+      );
+      break;
 
     case "add_help":
       await edit(chatId, msgId,
@@ -677,6 +876,8 @@ async function handleMessage(msg) {
   if (text === "⚙️ أرقام الدفع" || text === "⚙️ تعديل الأرقام") {
     await showNumbers(chatId);  return;
   }
+  if (text === "📈 نسبة الربح") { await showMarkup(chatId); return; }
+  if (text === "📢 إشعار عام")  { await showBroadcast(chatId); return; }
   if (text === "🔄 تحديث") { await showStats(chatId); return; }
   if (text === "➕ إضافة رصيد") {
     await send(chatId, [
@@ -688,6 +889,38 @@ async function handleMessage(msg) {
       "مثال:",
       "<code>/addbalance abc-123 15000</code>",
     ].join("\n"));
+    return;
+  }
+
+  // /setmarkup {n}
+  if (text.startsWith("/setmarkup")) {
+    const val = text.split(/\s+/)[1]?.trim();
+    const pct = parseFloat(val);
+    if (!val || isNaN(pct) || pct < 1 || pct > 500) {
+      await send(chatId, "⚠️ الاستخدام: <code>/setmarkup 50</code>\n\nمثال: 50 = نسبة ربح 50%");
+      return;
+    }
+    await applyMarkupBot(pct, chatId);
+    return;
+  }
+
+  // /broadcast {title} | {message}
+  if (text.startsWith("/broadcast")) {
+    const body = text.slice("/broadcast".length).trim();
+    const sep  = body.indexOf("|");
+    if (!body || sep === -1) {
+      await send(chatId, [
+        "⚠️ الاستخدام:",
+        "<code>/broadcast العنوان | نص الرسالة</code>",
+        "",
+        "مثال:",
+        "<code>/broadcast تحديث | تم تحديث أسعار الخدمات</code>",
+      ].join("\n"));
+      return;
+    }
+    const title   = body.slice(0, sep).trim();
+    const message = body.slice(sep + 1).trim();
+    await doBroadcast(title, message, chatId);
     return;
   }
 
