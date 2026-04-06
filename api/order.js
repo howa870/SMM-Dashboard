@@ -15,11 +15,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ ok: false, error: "FOLLOWIZ_KEY غير مضبوط على الخادم" });
   }
 
+  let uid            = null;
+  let balanceDeducted = false;
+  let deductedAmount  = 0;
+
   try {
     // ── Get user from token ───────────────────────────────────────────────────
     const authHeader = req.headers["authorization"] || "";
     const token      = authHeader.replace(/^Bearer\s+/i, "").trim();
-    let uid = null;
 
     if (token && SERVICE_KEY) {
       try {
@@ -31,34 +34,58 @@ export default async function handler(req, res) {
     // ── Calculate price ───────────────────────────────────────────────────────
     const qty   = Number(quantity);
     const ppm   = Number(price_per_1000 || 0);
-    const total = ppm > 0 ? (qty / 1000) * ppm : 0;
+    const total = ppm > 0 ? Math.ceil((qty / 1000) * ppm) : 0;
 
     // ── Check & deduct balance ────────────────────────────────────────────────
     if (uid && SERVICE_KEY && total > 0) {
-      try {
-        const rows = await sbSelect("profiles", `id=eq.${uid}&select=balance`);
-        const currentBalance = Number(rows?.[0]?.balance ?? 0);
-        if (currentBalance < total) {
-          return res.status(402).json({ ok: false, error: "رصيدك غير كافٍ" });
-        }
-        await sbUpdate("profiles", `id=eq.${uid}`, { balance: currentBalance - total });
-      } catch (e) {
-        console.warn("[order] balance deduct failed:", e.message);
+      const rows           = await sbSelect("profiles", `id=eq.${uid}&select=balance`);
+      const currentBalance = Number(rows?.[0]?.balance ?? 0);
+
+      if (currentBalance < total) {
+        return res.status(402).json({ ok: false, error: "رصيدك غير كافٍ" });
       }
+
+      const newBalance = Math.max(0, currentBalance - total);
+      await sbUpdate("profiles", `id=eq.${uid}`, { balance: newBalance });
+
+      balanceDeducted = true;
+      deductedAmount  = total;
+      console.log(`[order] ✅ خصم ${total} IQD من ${uid} — الرصيد الجديد: ${newBalance}`);
     }
 
     // ── Send order to Followiz ────────────────────────────────────────────────
-    const result = await followizCall({
-      action:   "add",
-      service:  String(svcId),
-      link:     String(link),
-      quantity: String(qty),
-    });
+    let result;
+    try {
+      result = await followizCall({
+        action:   "add",
+        service:  String(svcId),
+        link:     String(link),
+        quantity: String(qty),
+      });
+    } catch (followizErr) {
+      // Followiz call itself threw an error — refund immediately
+      if (balanceDeducted && uid) await refundBalance(uid, deductedAmount);
+      console.error("[order] Followiz call error:", followizErr.message);
+      return res.status(502).json({ ok: false, error: "تعذّر الاتصال بمزوّد الخدمة — تم استرداد رصيدك" });
+    }
 
     console.log("[order] Followiz result:", result);
 
     const orderId       = result.order ? String(result.order) : null;
     const followizError = result.error || null;
+
+    // ── Followiz rejected — refund balance ────────────────────────────────────
+    if (followizError && !orderId) {
+      if (balanceDeducted && uid) {
+        await refundBalance(uid, deductedAmount);
+        console.log(`[order] 🔄 رُدّ ${deductedAmount} IQD إلى ${uid} — سبب: ${followizError}`);
+      }
+      return res.status(502).json({
+        ok:    false,
+        error: followizError,
+        note:  "تم استرداد رصيدك تلقائياً",
+      });
+    }
 
     // ── Save order to Supabase (non-blocking) ─────────────────────────────────
     if (SERVICE_KEY) {
@@ -68,27 +95,46 @@ export default async function handler(req, res) {
         provider_order_id:   orderId || "",
         link:                String(link),
         quantity:            qty,
-        total_price:         total,
+        total_price:         deductedAmount || 0,
         status:              "pending",
       }).catch(err => console.warn("[order] DB save failed:", err.message));
     }
 
-    if (followizError && !orderId) {
-      return res.status(502).json({ ok: false, error: followizError });
-    }
-
-    const data = {
-      order_id:          orderId,
-      followiz_order_id: orderId,
-      total_price:       total,
-      service_id:        svcId,
-      status:            "pending",
-    };
-
-    res.json({ ok: true, success: true, data, order_id: orderId, total_price: total });
+    res.json({
+      ok:         true,
+      success:    true,
+      order_id:   orderId,
+      total_price: deductedAmount,
+      data: {
+        order_id:          orderId,
+        followiz_order_id: orderId,
+        total_price:       deductedAmount,
+        service_id:        svcId,
+        status:            "pending",
+      },
+    });
 
   } catch (err) {
+    // If anything unexpected throws after balance deduction → refund
+    if (balanceDeducted && uid) {
+      await refundBalance(uid, deductedAmount).catch(() => {});
+      console.error(`[order] ❌ خطأ غير متوقع — رُدّ ${deductedAmount} IQD إلى ${uid}`);
+    }
     console.error("[order]", err.message);
     res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
+// ── Refund helper ─────────────────────────────────────────────────────────────
+async function refundBalance(uid, amount) {
+  if (!uid || !amount || amount <= 0) return;
+  try {
+    const rows       = await sbSelect("profiles", `id=eq.${uid}&select=balance`);
+    const current    = Number(rows?.[0]?.balance ?? 0);
+    const newBalance = current + amount;
+    await sbUpdate("profiles", `id=eq.${uid}`, { balance: newBalance });
+    console.log(`[order] ✅ استرداد ${amount} IQD → رصيد ${uid} الجديد: ${newBalance}`);
+  } catch (e) {
+    console.error(`[order] ❌ فشل الاسترداد لـ ${uid}:`, e.message);
   }
 }
