@@ -100,6 +100,17 @@ const MAIN_KB = {
 
 const BACK_KB = { inline_keyboard: [[{ text: "🔙 القائمة الرئيسية", callback_data: "main" }]] };
 
+const REPLY_KB = {
+  keyboard: [
+    [{ text: "📊 الإحصائيات" }, { text: "💰 الأرباح" }],
+    [{ text: "📥 الطلبات المعلقة" }, { text: "👥 المستخدمين" }],
+    [{ text: "⚙️ أرقام الدفع" }, { text: "➕ إضافة رصيد" }],
+    [{ text: "🔄 تحديث" }],
+  ],
+  resize_keyboard: true,
+  persistent: true,
+};
+
 const NUMBERS_KB = {
   inline_keyboard: [
     [{ text: "📱 زين كاش",  callback_data: "num_zain"      }],
@@ -191,8 +202,13 @@ async function showMain(chatId, msgId = null) {
     "",
     "اختر من القائمة أدناه:",
   ].join("\n");
-  if (msgId) await edit(chatId, msgId, text, MAIN_KB);
-  else        await send(chatId, text, MAIN_KB);
+  if (msgId) {
+    await edit(chatId, msgId, text, MAIN_KB);
+  } else {
+    // إرسال الكيبورد الثابت أولاً ثم القائمة الـ inline
+    await send(chatId, "⌨️ جاهز!", REPLY_KB);
+    await send(chatId, text, MAIN_KB);
+  }
 }
 
 async function showStats(chatId, msgId = null) {
@@ -650,6 +666,28 @@ async function handleMessage(msg) {
     } catch (e) {
       await send(chatId, `❌ فشل: ${e.message}`);
     }
+    return;
+  }
+
+  // ─── أزرار الكيبورد الثابت ─────────────────────────────────────────────────
+  if (text === "📊 الإحصائيات") { await showStats(chatId);   return; }
+  if (text === "💰 الأرباح")    { await showRevenue(chatId); return; }
+  if (text === "📥 الطلبات المعلقة") { await showPending(chatId); return; }
+  if (text === "👥 المستخدمين") { await showUsers(chatId);   return; }
+  if (text === "⚙️ أرقام الدفع" || text === "⚙️ تعديل الأرقام") {
+    await showNumbers(chatId);  return;
+  }
+  if (text === "🔄 تحديث") { await showStats(chatId); return; }
+  if (text === "➕ إضافة رصيد") {
+    await send(chatId, [
+      "➕ <b>إضافة رصيد يدوياً</b>",
+      "",
+      "أرسل الأمر بالشكل التالي:",
+      "<code>/addbalance {user_id} {amount}</code>",
+      "",
+      "مثال:",
+      "<code>/addbalance abc-123 15000</code>",
+    ].join("\n"));
     return;
   }
 
